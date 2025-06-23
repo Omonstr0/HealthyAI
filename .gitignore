@@ -1,6 +1,9 @@
 # .gitignore
 # Datasets et données utilisateurs
 dataset/
-models/
+models/model_20pct.pth
+models/model_24pct.pth
+models/model_45pct.pth
+models/model_56pct.pth
 static/uploads/
 venv/
