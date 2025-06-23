@@ -1,0 +1,9 @@
+# .gitignore
+# Datasets et données utilisateurs
+dataset/
+feedback_data/
+models/
+static/uploads/
+*.csv
+*.db
+venv/
