@@ -4,6 +4,4 @@ dataset/
 feedback_data/
 models/
 static/uploads/
-*.csv
-*.db
 venv/
