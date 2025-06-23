@@ -2,6 +2,8 @@
 
 Bienvenue sur **HealthyAI**, une application prototype qui combine **analyse nutritionnelle automatisée** et **feedback utilisateur** pour améliorer la précision grâce au Machine Learning.
 
+dataset : https://www.kaggle.com/datasets/dansbecker/food-101?resource=download
+
 ---
 
 ## 🎯 Objectif
