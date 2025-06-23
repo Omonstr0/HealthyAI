@@ -30,7 +30,7 @@ HealthyAI a pour but d'aider les utilisateurs à :
 
 ### 2️⃣ **Upload et analyse d'image**
 - L'utilisateur téléverse une photo d'un plat.
-- Le modèle IA (ResNet ou similaire) prédit le nom du plat.
+- Le modèle IA prédit le nom du plat.
 - Une requête est envoyée à **Edamam API** pour récupérer les valeurs nutritionnelles pour **1 portion par défaut**.
 - Affichage des calories, protéines, glucides et lipides.
 
@@ -123,15 +123,8 @@ HealthyAI a pour but d'aider les utilisateurs à :
 
 - 📈 **Réentraînement automatique** en production.
 - ⚖️ **Système de grammage** pour ajuster l'analyse selon le poids réel du plat.
-- 🧩 **Détection multi-objets (YOLO)** pour compter plusieurs items par plat.
+- 🧩 **Détection multi-objets ** pour compter plusieurs items par plat.
 - ☁️ **Déploiement cloud** avec stockage persistant.
 
----
-
-## 🙌 Contribution
-
-Ce prototype est évolutif. Vos retours, bugs et idées sont les bienvenus !
-
----
 
 **Auteur :** Équipe HealthyAI — Prototype V1 — 2025  
