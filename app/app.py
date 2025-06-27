@@ -72,7 +72,7 @@ class Upload(db.Model):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-nutrition_df = pd.read_csv('plats.csv')
+nutrition_df = pd.read_csv('../plats.csv')
 
 def get_nutrition_from_food(dish_name):
     csv_dish_name = dish_name.lower().replace(" ", "_")
