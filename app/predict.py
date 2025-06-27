@@ -23,7 +23,7 @@ transform = transforms.Compose([
 
 # Chargement du modèle
 model = DeepFoodCNN(num_classes=num_classes)
-model.load_state_dict(torch.load("models/model_72pct.pth", map_location=DEVICE))
+model.load_state_dict(torch.load("../models/model_72pct.pth", map_location=DEVICE))
 model.eval()
 
 def predict_food(image_path):
