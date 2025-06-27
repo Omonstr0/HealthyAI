@@ -463,6 +463,23 @@ def save_corrected_image(filename, label):
     except Exception as e:
         print(f"[ERREUR] Copie de l'image échouée : {e}")
 
+#boutons barres supérieure
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+@app.route('/info')
+def info():
+    return render_template('info.html')
+#bouton danalyse
+@app.route('/analytics')
+def analytics():
+    if 'user_id' not in session:
+        flash("Veuillez vous connecter pour accéder aux statistiques.", 'warning')
+        return redirect(url_for('signin'))
+    return render_template('analytics.html')
+
+
 # Déconnexion
 @app.route('/logout')
 def logout():
