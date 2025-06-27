@@ -9,7 +9,7 @@ import os
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 # Chargement des classes
-with open("classes_food101.txt", "r") as f:
+with open("app/classes_food101.txt", "r") as f:
     class_labels = [line.strip() for line in f.readlines()]
 
 num_classes = len(class_labels)
