@@ -51,33 +51,21 @@
       padding: 20px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
-
-    .star-rating {
-      direction: rtl;
-      display: inline-flex;
-      justify-content: center;
-    }
-    .star-rating input[type="radio"] {
-      display: none;
-    }
-    .star-rating label {
-      font-size: 22px;
-      color: #ccc;
+    .history-img {
+      transition: transform 0.2s, border 0.3s;
       cursor: pointer;
+      border-radius: 10px;
     }
-    .star-rating input[type="radio"]:checked ~ label {
-      color: #ffc107;
+    .history-img:hover {
+      transform: scale(1.03);
     }
-
-    .star-rating label:hover,
-    .star-rating label:hover ~ label {
-      color: #FFD700;
+    .selected-img {
+      border: 3px solid #4CAF50 !important;
     }
   </style>
 </head>
 <body>
 
-<!-- Navbar -->
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
   <div class="container">
     <a class="navbar-brand fw-bold" href="{{ url_for('home') }}">Healthy<span>AI</span></a>
@@ -88,7 +76,6 @@
   </div>
 </nav>
 
-<!-- Contenu -->
 <div class="container">
   <div class="text-center mb-5">
     <h2>Bienvenue sur votre tableau de bord 👋</h2>
@@ -109,91 +96,90 @@
     {% if image_url %}
       <img src="{{ url_for('static', filename=image_url) }}" class="preview-img" alt="Image uploadée">
       {% if detected_dish %}
-        <h4 class="text-center mt-3">🍽️ Plat détecté : <strong>{{ detected_dish }}</strong></h4>
+        {% if nutrition.name_fr %}
+          <h4 class="text-center mt-3">🍽️ Plat détecté : <strong>{{ nutrition.name_fr.replace('_', ' ').capitalize() }}</strong></h4>
+        {% else %}
+          <h4 class="text-center mt-3">🍽️ Plat détecté : <strong>{{ detected_dish.replace('_', ' ').capitalize() }}</strong></h4>
+        {% endif %}
       {% endif %}
     {% else %}
       <img id="imagePreview" class="preview-img d-none" alt="Preview" />
     {% endif %}
   </div>
 
-  <!-- Analyse nutritionnelle API -->
   {% if nutrition %}
-  <div class="nutri-table mx-auto mt-5" style="max-width: 500px;">
-    <h5 class="text-center mb-4">Analyse nutritionnelle :</h5>
-    <table class="table table-borderless text-center">
-      <tr>
-        <th>Calories</th>
-        <td>{{ nutrition.calories }} kcal</td>
-      </tr>
-      <tr>
-        <th>Protéines</th>
-        <td>{{ nutrition.totalNutrients.PROCNT.quantity | round(1) }} {{ nutrition.totalNutrients.PROCNT.unit }}</td>
-      </tr>
-      <tr>
-        <th>Glucides</th>
-        <td>{{ nutrition.totalNutrients.CHOCDF.quantity | round(1) }} {{ nutrition.totalNutrients.CHOCDF.unit }}</td>
-      </tr>
-      <tr>
-        <th>Lipides</th>
-        <td>{{ nutrition.totalNutrients.FAT.quantity | round(1) }} {{ nutrition.totalNutrients.FAT.unit }}</td>
-      </tr>
-    </table>
-  </div>
+    {% if nutrition.error %}
+      <div class="alert alert-warning text-center mt-4">
+        {{ nutrition.error }}
+      </div>
+    {% else %}
+      <div class="nutri-table mx-auto mt-5" style="max-width: 500px;">
+        <h5 class="text-center mb-4">Analyse nutritionnelle :</h5>
+        <table class="table table-borderless text-center">
+          <tr><th>Calories</th><td>{{ nutrition.kcal }} kcal</td></tr>
+          <tr><th>Protéines</th><td>{{ nutrition.protein_g }} g</td></tr>
+          <tr><th>Glucides</th><td>{{ nutrition.carbs_g }} g</td></tr>
+          <tr><th>Lipides</th><td>{{ nutrition.fat_g }} g</td></tr>
+        </table>
+      </div>
+    {% endif %}
   {% endif %}
 
-{% if uploads %}
-<!-- Historique des uploads -->
-<div class="mt-5">
-  <h4 class="text-center mb-4">🕓 Historique de vos repas</h4>
-  <div class="row justify-content-center">
-    {% for img in uploads %}
-    <div class="col-md-3 text-center mb-4">
-      <img src="{{ url_for('static', filename='uploads/' ~ img.filename) }}" class="img-fluid rounded mb-2" style="max-height: 150px;">
-      <p><strong>{{ img.dish_name or "Plat inconnu" }}</strong></p>
+  {% if uploads %}
+  <div class="mt-5">
+    <h4 class="text-center mb-4">🕒 Historique de vos repas</h4>
+    <div class="row justify-content-center">
+      {% for img in uploads %}
+      <div class="col-md-3 text-center mb-4">
+        <a href="{{ url_for('analyse', upload_id=img.id) }}" data-bs-toggle="tooltip" title="Cliquez pour voir l’analyse complète">
+          <img src="{{ url_for('static', filename='uploads/' ~ img.filename) }}" class="img-fluid history-img {% if selected_id == img.id %}selected-img{% endif %}" style="max-height: 150px;">
+        </a>
+        <p><strong>{{ (img.dish_name or "Plat inconnu").replace("_", " ").capitalize() }}</strong></p>
 
-      <!-- Système de notation -->
-      <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" class="mb-2">
-        <div class="star-rating mb-2">
-          {% for i in range(5, 0, -1) %}
-            <input type="radio" id="star{{ i }}_{{ img.id }}" name="rating" value="{{ i }}" {% if img.rating == i %}checked{% endif %}>
-            <label for="star{{ i }}_{{ img.id }}">★</label>
-          {% endfor %}
+        <div class="mb-2">
+          <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" style="display: inline;">
+            <input type="hidden" name="rating" value="5">
+            <button type="submit" class="btn btn-sm btn-outline-success">👍</button>
+          </form>
+          <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" style="display: inline;">
+            <input type="hidden" name="rating" value="1">
+            <button type="submit" class="btn btn-sm btn-outline-warning">👎</button>
+          </form>
         </div>
-        <button type="submit" class="btn btn-sm btn-outline-success">Envoyer le feedback</button>
-      </form>
 
-      <!-- Correction du plat (visible si note ≤ 3) -->
-      {% if img.rating and img.rating <= 3 and img.id != corrected_id %}
+        {% if img.rating == 1 %}
         <form method="POST" action="{{ url_for('correct_label', upload_id=img.id) }}">
           <input type="text" name="new_dish" class="form-control form-control-sm my-2" placeholder="Nom correct du plat" required>
           <button type="submit" class="btn btn-sm btn-warning w-100">Corriger le plat</button>
         </form>
-      {% endif %}
+        {% endif %}
 
-      <!-- Boutons -->
-      <a href="{{ url_for('analyse', upload_id=img.id) }}" class="btn btn-sm btn-outline-primary mb-1">Voir analyse</a>
-      <form action="{{ url_for('delete_upload', upload_id=img.id) }}" method="POST" style="display: inline;">
-        <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
-      </form>
+        <form action="{{ url_for('delete_upload', upload_id=img.id) }}" method="POST" style="display: inline;">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+        </form>
+      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
   </div>
-</div>
-{% endif %}
+  {% endif %}
 
 <script src="https://kit.fontawesome.com/ae450be4d8.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   function previewImage(event) {
     const reader = new FileReader();
     const imageField = document.getElementById("imagePreview");
-
     reader.onload = function () {
       imageField.src = reader.result;
       imageField.classList.remove("d-none");
     };
-
     reader.readAsDataURL(event.target.files[0]);
   }
+
+  const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+  tooltipTriggerList.forEach(tooltipTriggerEl => {
+    new bootstrap.Tooltip(tooltipTriggerEl)
+  });
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import os
 import shutil
-from app import db, Upload, app
+from app import app, db, Upload
 
 EXPORT_DIR = "feedback_data_errors"
 
