@@ -6,3 +6,4 @@ models/model_24pct.pth
 models/model_45pct.pth
 models/model_56pct.pth
 venv/
+.DS_Store
