@@ -268,7 +268,7 @@ def upload():
         uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
 
         # ✅ Pré-écriture du log feedback (sans rating pour l’instant)
-        log_path = "feedback_csv/feedback_log.csv"
+        log_path = "../feedback_csv/feedback_log.csv"
         if not os.path.exists(log_path):
             with open(log_path, "w", newline="") as f:
                 writer = csv.writer(f)
