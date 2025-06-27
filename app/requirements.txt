@@ -33,3 +33,4 @@ Werkzeug==2.3.7
 zipp==3.21.0
 gunicorn
 pandas
+psycopg2-binary>=2.9
