@@ -12,11 +12,36 @@ import shutil
 import csv
 import datetime
 import torch
+import pandas as pd
 
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+MULTI_ITEMS_DISHES = [
+    "bibimbap",
+    "breakfast_burrito",
+    "cheese_plate",           # plateau de fromages
+    "club_sandwich",
+    "dumplings",              # souvent en groupe
+    "falafel",                # souvent servis en plusieurs pièces
+    "fish_and_chips",
+    "french_fries",
+    "fried_calamari",         # souvent plusieurs
+    "gyoza",                  # souvent plusieurs
+    "nachos",                 # plat partagé
+    "onion_rings",
+    "poutine",                # frites + sauce + fromage
+    "ravioli",
+    "samosa",
+    "spring_rolls",
+    "sushi",                  # plusieurs pièces visibles
+    "tacos",                  # souvent 2 ou 3 visibles
+    "takoyaki",
+    "waffles,"# plusieurs boules
+]
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
-app.secret_key = 'super_secret_key'
+app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -28,9 +53,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-EDAMAM_APP_ID = "0c070cdf"
-EDAMAM_APP_KEY = "9749ef944be8a4c9d2ac6b659dcb2a09"
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,38 +72,36 @@ class Upload(db.Model):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_nutrition_from_food(food_query):
-    parser_url = "https://api.edamam.com/api/food-database/v2/parser"
-    nutrient_url = "https://api.edamam.com/api/food-database/v2/nutrients"
-    params = {"app_id": EDAMAM_APP_ID, "app_key": EDAMAM_APP_KEY, "ingr": food_query}
-    parser_response = requests.get(parser_url, params=params)
-    if parser_response.status_code != 200:
-        print("Erreur parser:", parser_response.text)
-        return None
-    data = parser_response.json()
-    try:
-        food_id = data['parsed'][0]['food']['foodId']
-        label = data['parsed'][0]['food']['label']
-    except (IndexError, KeyError):
-        print("Aucun aliment trouvé.")
-        return None
-    payload = {
-        "ingredients": [
-            {
-                "quantity": 1,
-                "measureURI": "http://www.edamam.com/ontologies/edamam.owl#Measure_serving",
-                "foodId": food_id
-            }
-        ]
-    }
-    nutrient_params = {"app_id": EDAMAM_APP_ID, "app_key": EDAMAM_APP_KEY}
-    nutrient_response = requests.post(nutrient_url, params=nutrient_params, json=payload)
-    if nutrient_response.status_code != 200:
-        print("Erreur nutrients:", nutrient_response.text)
-        return None
-    nutrition_data = nutrient_response.json()
-    nutrition_data["label"] = label
-    return nutrition_data
+nutrition_df = pd.read_csv('plats.csv')
+
+def get_nutrition_from_food(dish_name):
+    csv_dish_name = dish_name.lower().replace(" ", "_")
+
+    # 🔍 1. Recherche dans les noms anglais (colonne 'name')
+    row = nutrition_df[nutrition_df['name'].str.lower() == csv_dish_name]
+
+    # 🔄 2. Si vide, recherche dans les noms français (colonne 'name_fr')
+    if row.empty:
+        row = nutrition_df[nutrition_df['name_fr'].str.lower() == csv_dish_name]
+
+    # ✅ 3. Retourne les données si trouvées
+    if not row.empty:
+        return {
+            "kcal": float(row["kcal"].values[0]),
+            "protein_g": float(row["protein_g"].values[0]),
+            "carbs_g": float(row["carbs_g"].values[0]),
+            "fat_g": float(row["fat_g"].values[0]),
+            "name_fr": row["name_fr"].values[0]  # affichage propre
+        }
+    else:
+        # ❌ Aucune correspondance trouvée
+        return {
+            "kcal": 0,
+            "protein_g": 0,
+            "carbs_g": 0,
+            "fat_g": 0,
+            "name_fr": dish_name.replace("_", " ")  # garde le nom personnalisé
+        }
 
 @app.route('/')
 def home():
@@ -233,7 +253,7 @@ def upload():
         new_upload = Upload(
             filename=filename,
             user_id=session['user_id'],
-            dish_name=label_formatted
+            dish_name=nutrition.get("name_fr", label_formatted)
         )
         db.session.add(new_upload)
         db.session.commit()
@@ -283,12 +303,18 @@ def analyse(upload_id):
         flash("Accès non autorisé.", "danger")
         return redirect(url_for('dashboard'))
 
+    # Met à jour les infos pour affichage
     label = upload.dish_name
     nutrition = get_nutrition_from_food(label)
 
     session['last_nutrition'] = nutrition
     session['last_image'] = os.path.join('uploads', upload.filename)
     session['last_dish'] = label
+
+    # ✅ Réinitialise le rating à None après analyse (si correction déjà faite)
+    if upload.rating == 1:
+        upload.rating = None
+        db.session.commit()
 
     return redirect(url_for('dashboard'))
 
@@ -380,9 +406,9 @@ def correct_label(upload_id):
     corrected = request.form.get('new_dish')
     if corrected:
         upload.dish_name = corrected.strip().lower()
+        upload.rating = None  # ✅ empêche l'affichage du champ de correction ensuite
         db.session.commit()
         flash("Nom du plat mis à jour ✅", "success")
-        session['corrected_id'] = upload_id
 
     return redirect(url_for('dashboard'))
 
@@ -405,6 +431,7 @@ def correction(upload_id):
 
     # Mise à jour du nom du plat
     upload.dish_name = new_dish.title()
+    upload.rating = None
     db.session.commit()
     flash("Nom du plat mis à jour.", 'success')
 
@@ -449,5 +476,6 @@ def logout():
 with app.app_context():
     db.create_all()
 
+# Lancement de l'application Flask
 if __name__ == '__main__':
     app.run(debug=True)
