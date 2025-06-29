@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -8,7 +8,6 @@ import os
 import secrets
 import uuid
 import requests
-import shutil
 import csv
 import datetime
 import torch
@@ -16,26 +15,10 @@ import pandas as pd
 
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 MULTI_ITEMS_DISHES = [
-    "bibimbap",
-    "breakfast_burrito",
-    "cheese_plate",           # plateau de fromages
-    "club_sandwich",
-    "dumplings",              # souvent en groupe
-    "falafel",                # souvent servis en plusieurs pièces
-    "fish_and_chips",
-    "french_fries",
-    "fried_calamari",         # souvent plusieurs
-    "gyoza",                  # souvent plusieurs
-    "nachos",                 # plat partagé
-    "onion_rings",
-    "poutine",                # frites + sauce + fromage
-    "ravioli",
-    "samosa",
-    "spring_rolls",
-    "sushi",                  # plusieurs pièces visibles
-    "tacos",                  # souvent 2 ou 3 visibles
-    "takoyaki",
-    "waffles,"# plusieurs boules
+    "bibimbap", "breakfast_burrito", "cheese_plate", "club_sandwich", "dumplings",
+    "falafel", "fish_and_chips", "french_fries", "fried_calamari", "gyoza",
+    "nachos", "onion_rings", "poutine", "ravioli", "samosa",
+    "spring_rolls", "sushi", "tacos", "takoyaki", "waffles,"
 ]
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -76,31 +59,21 @@ nutrition_df = pd.read_csv('../plats.csv')
 
 def get_nutrition_from_food(dish_name):
     csv_dish_name = dish_name.lower().replace(" ", "_")
-
-    # 🔍 1. Recherche dans les noms anglais (colonne 'name')
     row = nutrition_df[nutrition_df['name'].str.lower() == csv_dish_name]
-
-    # 🔄 2. Si vide, recherche dans les noms français (colonne 'name_fr')
     if row.empty:
         row = nutrition_df[nutrition_df['name_fr'].str.lower() == csv_dish_name]
-
-    # ✅ 3. Retourne les données si trouvées
     if not row.empty:
         return {
             "kcal": float(row["kcal"].values[0]),
             "protein_g": float(row["protein_g"].values[0]),
             "carbs_g": float(row["carbs_g"].values[0]),
             "fat_g": float(row["fat_g"].values[0]),
-            "name_fr": row["name_fr"].values[0]  # affichage propre
+            "name_fr": row["name_fr"].values[0]
         }
     else:
-        # ❌ Aucune correspondance trouvée
         return {
-            "kcal": 0,
-            "protein_g": 0,
-            "carbs_g": 0,
-            "fat_g": 0,
-            "name_fr": dish_name.replace("_", " ")  # garde le nom personnalisé
+            "kcal": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0,
+            "name_fr": dish_name.replace("_", " ")
         }
 
 @app.route('/')
@@ -122,63 +95,6 @@ def signin():
             flash('Email ou mot de passe incorrect.', 'danger')
     return render_template('signin.html')
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        confirm = request.form['confirm']
-        if password != confirm:
-            flash('Les mots de passe ne correspondent pas.', 'warning')
-            return redirect(url_for('signup'))
-        existing_user = User.query.filter_by(email=email).first()
-        if existing_user:
-            flash('Un compte existe déjà avec cet email.', 'warning')
-            return redirect(url_for('signup'))
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(email=email, password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-        flash('Compte créé avec succès. Vous pouvez vous connecter.', 'success')
-        return redirect(url_for('signin'))
-    return render_template('signup.html')
-
-@app.route('/forgot_password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        email = request.form['email']
-        user = User.query.filter_by(email=email).first()
-        if user:
-            token = secrets.token_urlsafe(32)
-            user.reset_token = token
-            db.session.commit()
-            reset_link = url_for('reset_password', token=token, _external=True)
-            print(f"[DEV] Lien de réinitialisation : {reset_link}")
-            flash('Un email de réinitialisation a été envoyé (vérifiez la console pour le lien)', 'info')
-        else:
-            flash('Aucun compte trouvé avec cet email.', 'warning')
-        return redirect(url_for('signin'))
-    return render_template('forgot_password.html')
-
-@app.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    user = User.query.filter_by(reset_token=token).first()
-    if not user:
-        flash('Lien invalide ou expiré.', 'danger')
-        return redirect(url_for('signin'))
-    if request.method == 'POST':
-        password = request.form['password']
-        confirm = request.form['confirm']
-        if password != confirm:
-            flash('Les mots de passe ne correspondent pas.', 'warning')
-            return redirect(request.url)
-        user.password = generate_password_hash(password, method='pbkdf2:sha256')
-        user.reset_token = None
-        db.session.commit()
-        flash('Mot de passe mis à jour avec succès !', 'success')
-        return redirect(url_for('signin'))
-    return render_template('reset-password.html')
-
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
@@ -192,11 +108,6 @@ def dashboard():
                            detected_dish=session.get('last_dish'),
                            corrected_id=session.pop('corrected_id', None))
 
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'user_id' not in session:
@@ -204,99 +115,75 @@ def upload():
         return redirect(url_for('signin'))
 
     file = request.files.get('photo')
-    if not file or file.filename == '':
-        flash('Aucune image sélectionnée.', 'warning')
+    if not file or file.filename == '' or not allowed_file(file.filename):
+        flash('Fichier invalide.', 'warning')
         return redirect(url_for('dashboard'))
 
-    if allowed_file(file.filename):
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        filename = f"{uuid.uuid4().hex}.{ext}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        file.save(filepath)
-        static_upload_folder = os.path.join(app.root_path, 'static', 'uploads')
-        os.makedirs(static_upload_folder, exist_ok=True)
-        shutil.copy(filepath, os.path.join(static_upload_folder, filename))
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
 
-        # ✅ Vérification de compatibilité
-        try:
-            with Image.open(filepath) as img:
-                img.verify()
-        except (UnidentifiedImageError, OSError):
-            os.remove(filepath)
-            flash("Image non compatible. Veuillez choisir un fichier image valide (JPG, PNG).", "danger")
-            return redirect(url_for('dashboard'))
+    try:
+        with Image.open(filepath) as img:
+            img.verify()
+    except (UnidentifiedImageError, OSError):
+        os.remove(filepath)
+        flash("Image non compatible.", "danger")
+        return redirect(url_for('dashboard'))
 
-        # ✅ Prédiction + confiance
-        img = Image.open(filepath).convert("RGB")
-        img_tensor = transform(img).unsqueeze(0)
-        model.eval()
+    img = Image.open(filepath).convert("RGB")
+    img_tensor = transform(img).unsqueeze(0)
+    model.eval()
+    model.to(DEVICE)
+    img_tensor = img_tensor.to(DEVICE)
 
-        if DEVICE.type == 'mps':
-            img_tensor = img_tensor.to(torch.float32)
-            model.to("mps")
-            img_tensor = img_tensor.to("mps")
-        else:
-            model.to("cpu")
-            img_tensor = img_tensor.to("cpu")
+    with torch.no_grad():
+        outputs = model(img_tensor)
+        probs = torch.softmax(outputs, dim=1)
+        confidence = torch.max(probs).item()
+        predicted_idx = torch.argmax(probs, dim=1).item()
+        predicted_label = class_labels[predicted_idx]
 
-        with torch.no_grad():
-            outputs = model(img_tensor)
-            probs = torch.softmax(outputs, dim=1)
-            confidence = torch.max(probs).item()
-            predicted_idx = torch.argmax(probs, dim=1).item()
-            predicted_label = class_labels[predicted_idx]
+    label_formatted = predicted_label.replace("_", " ").title()
+    nutrition = get_nutrition_from_food(label_formatted)
 
-        label_formatted = predicted_label.replace("_", " ").title()
+    new_upload = Upload(
+        filename=filename,
+        user_id=session['user_id'],
+        dish_name=nutrition.get("name_fr", label_formatted)
+    )
+    db.session.add(new_upload)
+    db.session.commit()
 
-        # ✅ API nutrition
-        nutrition = get_nutrition_from_food(label_formatted)
+    session['last_nutrition'] = nutrition
+    session['last_dish'] = label_formatted
+    session['last_confidence'] = round(confidence, 4)
+    session['last_image'] = url_for('uploaded_file', filename=filename)
 
-        # ✅ Enregistrement DB
-        new_upload = Upload(
-            filename=filename,
-            user_id=session['user_id'],
-            dish_name=nutrition.get("name_fr", label_formatted)
-        )
-        db.session.add(new_upload)
-        db.session.commit()
+    uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
 
-        # ✅ Session
-        session['last_nutrition'] = nutrition
-        session['last_image'] = url_for('static', filename=f'uploads/{filename}')
-        session['last_dish'] = label_formatted
-        session['last_confidence'] = round(confidence, 4)
-
-        # ✅ Historique
-        uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
-
-        # ✅ Pré-écriture du log feedback (sans rating pour l’instant)
-        log_path = "../feedback_csv/feedback_log.csv"
-        if not os.path.exists(log_path):
-            with open(log_path, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["image", "plat_prédit", "note", "correction", "date", "confiance", "re-entrainement"])
-
-        with open(log_path, "a", newline="") as f:
+    log_path = "../feedback_csv/feedback_log.csv"
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    if not os.path.exists(log_path):
+        with open(log_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                filename, label_formatted, "", "", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), round(confidence, 4), ""
-            ])
+            writer.writerow(["image", "plat_prédit", "note", "correction", "date", "confiance", "re-entrainement"])
 
-        flash('Image bien reçue !', 'success')
-        flash(f"Plat détecté : {label_formatted}", "info")
+    with open(log_path, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([filename, label_formatted, "", "", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), round(confidence, 4), ""])
 
-        session['last_image'] = os.path.join('uploads', filename)
+    flash('Image bien reçue !', 'success')
+    return render_template('dashboard.html',
+                           uploads=uploads,
+                           nutrition=nutrition,
+                           detected_dish=label_formatted,
+                           image_url=session['last_image'])
 
-        return render_template('dashboard.html',
-                               uploads=uploads,
-                               nutrition=nutrition,
-                               detected_dish=label_formatted,
-                               image_url=session['last_image'])
-
-    else:
-        flash('Format de fichier non autorisé. Veuillez choisir un JPG ou PNG.', 'danger')
-        return redirect(url_for('dashboard'))
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/analyse/<int:upload_id>')
 def analyse(upload_id):
