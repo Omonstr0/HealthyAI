@@ -214,6 +214,9 @@ def upload():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         file.save(filepath)
+        static_upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+        os.makedirs(static_upload_folder, exist_ok=True)
+        shutil.copy(filepath, os.path.join(static_upload_folder, filename))
 
         # ✅ Vérification de compatibilité
         try:
@@ -260,7 +263,7 @@ def upload():
 
         # ✅ Session
         session['last_nutrition'] = nutrition
-        session['last_image'] = os.path.join('uploads', filename)
+        session['last_image'] = url_for('static', filename=f'uploads/{filename}')
         session['last_dish'] = label_formatted
         session['last_confidence'] = round(confidence, 4)
 
@@ -308,7 +311,7 @@ def analyse(upload_id):
     nutrition = get_nutrition_from_food(label)
 
     session['last_nutrition'] = nutrition
-    session['last_image'] = os.path.join('uploads', upload.filename)
+    session['last_image'] = url_for('static', filename=f'uploads/{upload.filename}')
     session['last_dish'] = label
 
     # ✅ Réinitialise le rating à None après analyse (si correction déjà faite)

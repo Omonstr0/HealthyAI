@@ -146,8 +146,7 @@
       </form>
 
       {% if image_url %}
-        <img src="{{ url_for('static', filename=image_url) }}" class="preview-img" alt="Image uploadée">
-        {% if detected_dish %}
+        <img src="{{ image_url }}" class="preview-img" alt="Image uploadée">        {% if detected_dish %}
           <h4 class="text-center mt-3">🍽️ Plat détecté : <strong>{{ (nutrition.name_fr or detected_dish).replace('_',' ').capitalize() }}</strong></h4>
         {% endif %}
       {% else %}
