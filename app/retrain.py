@@ -1,109 +1,74 @@
 import os
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import shutil
+from datetime import datetime
 
-# ============ MODÈLE IDENTIQUE AU TRAIN PRINCIPAL ============
-class DeepFoodCNN(nn.Module):
-    def __init__(self, num_classes):
-        super(DeepFoodCNN, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+# === Config ===
+DATA_DIR = "retraining_dataset"
+MODEL_PATH = "models/model_latest.pth"
+NUM_EPOCHS = 5
+BATCH_SIZE = 16
+DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+# === Transforms ===
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
 
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+# === Dataloader ===
+dataset = datasets.ImageFolder(DATA_DIR, transform=transform)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1))
-        )
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Dropout(0.6),
-            nn.Linear(512, num_classes)
-        )
+# === Classe vers index ===
+class_to_idx = dataset.class_to_idx
+idx_to_class = {v: k for k, v in class_to_idx.items()}
+num_classes = len(class_to_idx)
+print(f"[INFO] Nouvelles classes détectées : {class_to_idx}")
 
-    def forward(self, x):
-        x = self.features(x)
-        return self.classifier(x)
+# === Backup du modèle existant ===
+if os.path.exists(MODEL_PATH):
+    BACKUP_DIR = "models/backups"
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    backup_name = os.path.join(BACKUP_DIR, f"model_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth")
+    shutil.copy(MODEL_PATH, backup_name)
+    print(f"[🕐] Backup créé : {backup_name}")
 
+# === Charger modèle existant ===
+model = torch.load(MODEL_PATH, map_location=DEVICE)
 
-if __name__ == "__main__":
-    DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    MODEL_PATH = "models/model_72pct.pth"
-    RETRAIN_PATH = "retraining_dataset"
-    CLASS_FILE = "classes_food101.txt"
-    IMAGE_SIZE = 128
-    BATCH_SIZE = 16
-    EPOCHS = 10
-    LR = 1e-4
+# === Adapter la dernière couche si le nombre de classes a changé ===
+if model.fc.out_features != num_classes:
+    in_features = model.fc.in_features
+    model.fc = nn.Linear(in_features, num_classes)
+    print(f"[INFO] Couche de sortie ajustée : {num_classes} classes")
 
-    # Labels et classes
-    with open(CLASS_FILE) as f:
-        class_names = [line.strip() for line in f]
-    NUM_CLASSES = len(class_names)
+model.to(DEVICE)
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    # Transforms simples (on ne veut pas trop de bruit ici)
-    transform = transforms.Compose([
-        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5]*3, [0.5]*3)
-    ])
+# === Fine-tuning ===
+model.train()
+for epoch in range(NUM_EPOCHS):
+    total_loss = 0
+    for images, labels in tqdm(dataloader, desc=f"Époque {epoch+1}/{NUM_EPOCHS}"):
+        images, labels = images.to(DEVICE), labels.to(DEVICE)
 
-    # Dataset de corrections utilisateur
-    retrain_dataset = datasets.ImageFolder(RETRAIN_PATH, transform=transform)
-    retrain_loader = DataLoader(retrain_dataset, batch_size=BATCH_SIZE, shuffle=True)
+        outputs = model(images)
+        loss = criterion(outputs, labels)
 
-    # Modèle à partir du fichier existant
-    model = DeepFoodCNN(NUM_CLASSES).to(DEVICE)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-    # Optimiseur + perte + scheduler
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+        total_loss += loss.item()
 
-    # Réentraînement
-    model.train()
-    for epoch in range(EPOCHS):
-        running_loss = 0.0
-        for imgs, labels in tqdm(retrain_loader, desc=f"[Retrain Epoch {epoch+1}/{EPOCHS}]"):
-            imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-            optimizer.zero_grad()
-            outputs = model(imgs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-        print(f"-> Loss: {running_loss/len(retrain_loader):.4f}")
-        scheduler.step()
+    print(f"[INFO] Époque {epoch+1} terminée - Loss: {total_loss:.4f}")
 
-    # Sauvegarde finale
-    torch.save(model.state_dict(), MODEL_PATH)
-    print(f"[✔] Modèle réentraîné sauvegardé dans {MODEL_PATH}")
+# === Sauvegarde du nouveau modèle
+torch.save(model, MODEL_PATH)
+print(f"[✅] Nouveau modèle enregistré dans {MODEL_PATH}")

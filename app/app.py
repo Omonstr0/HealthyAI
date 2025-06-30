@@ -361,7 +361,7 @@ def feedback(upload_id):
 
     try:
         rating = int(request.form.get('rating'))
-        if rating < 1 or rating > 5:
+        if rating not in (0, 1):
             raise ValueError
     except (TypeError, ValueError):
         flash("Note invalide.", 'warning')
