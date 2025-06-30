@@ -192,7 +192,7 @@
                   <button type="submit" class="btn btn-sm btn-outline-warning">👎</button>
                 </form>
             </div>
-            {% if img.rating == 1 %}
+            {% if img.rating == 0 %}
               <form method="POST" action="{{ url_for('correct_label', upload_id=img.id) }}">
                 <input type="text" name="new_dish" class="form-control form-control-sm my-2" placeholder="Nom correct du plat" required>
                 <button type="submit" class="btn btn-sm btn-warning w-100">Corriger le plat</button>
