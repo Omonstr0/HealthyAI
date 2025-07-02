@@ -411,6 +411,21 @@ def correct_label(upload_id):
         upload.dish_name = corrected.strip().lower()
         upload.rating = None  # ✅ empêche l'affichage du champ de correction ensuite
         db.session.commit()
+
+        # ✅ Sauvegarde dans retraining_dataset/<corrected>/
+        save_corrected_image(upload.filename, corrected)
+
+        # ✅ Si dossier >= 10 images, relance auto de retrain.py
+        corrected_dir = os.path.join("retraining_dataset", corrected)
+        if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 10:
+            import subprocess
+            try:
+                subprocess.run(["python", "retrain.py"], check=True)
+                flash("✔ Réentraînement déclenché automatiquement.", "info")
+            except Exception as e:
+                flash("❌ Échec du réentraînement automatique.", "danger")
+                print(f"[ERREUR] Réentraînement : {e}")
+
         flash("Nom du plat mis à jour ✅", "success")
 
     return redirect(url_for('dashboard'))
