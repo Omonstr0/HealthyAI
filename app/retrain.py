@@ -35,14 +35,23 @@ print(f"[INFO] Nouvelles classes détectées : {class_to_idx}")
 
 # === Backup du modèle existant ===
 if os.path.exists(MODEL_PATH):
-    BACKUP_DIR = "models/backups"
+    BACKUP_DIR = os.path.join(BASE_DIR, "models", "backups")
     os.makedirs(BACKUP_DIR, exist_ok=True)
     backup_name = os.path.join(BACKUP_DIR, f"model_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth")
     shutil.copy(MODEL_PATH, backup_name)
     print(f"[🕐] Backup créé : {backup_name}")
 
-# === Charger modèle existant ===
-model = torch.load(MODEL_PATH, map_location=DEVICE)
+# === Chargement du modèle ===
+try:
+    model = torch.load(MODEL_PATH, map_location=DEVICE)
+    print("[INFO] Modèle complet chargé.")
+except Exception as e:
+    print(f"[⚠️] Le chargement du modèle complet a échoué ({e}), tentative avec state_dict...")
+    model = models.resnet18(pretrained=False)
+    in_features = model.fc.in_features
+    model.fc = nn.Linear(in_features, num_classes)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    print("[INFO] Modèle reconstruit avec state_dict.")
 
 # === Adapter la dernière couche si le nombre de classes a changé ===
 if model.fc.out_features != num_classes:
@@ -73,6 +82,6 @@ for epoch in range(NUM_EPOCHS):
     print(f"[INFO] Époque {epoch+1} terminée - Loss: {total_loss:.4f}")
 
 # === Sauvegarde du nouveau modèle
-os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True) 
+os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 torch.save(model, MODEL_PATH)
 print(f"[✅] Nouveau modèle enregistré dans {MODEL_PATH}")
