@@ -13,7 +13,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "model_latest.pth")
 NUM_EPOCHS = 5
 BATCH_SIZE = 16
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
 
 print(f"[INFO] Chemin absolu du modèle : {MODEL_PATH}")
 
@@ -33,7 +33,7 @@ idx_to_class = {v: k for k, v in class_to_idx.items()}
 num_classes = len(class_to_idx)
 print(f"[INFO] Nouvelles classes détectées : {class_to_idx}")
 
-# === Backup du modèle existant ===
+# === Backup des poids existants ===
 if os.path.exists(MODEL_PATH):
     BACKUP_DIR = os.path.join(BASE_DIR, "models", "backups")
     os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -41,29 +41,22 @@ if os.path.exists(MODEL_PATH):
     shutil.copy(MODEL_PATH, backup_name)
     print(f"[🕐] Backup créé : {backup_name}")
 
-# === Chargement du modèle ===
-try:
-    model = torch.load(MODEL_PATH, map_location=DEVICE)
-    print("[INFO] Modèle complet chargé.")
-except Exception as e:
-    print(f"[⚠️] Le chargement du modèle complet a échoué ({e}), tentative avec state_dict...")
-    model = models.resnet18(pretrained=False)
-    in_features = model.fc.in_features
-    model.fc = nn.Linear(in_features, num_classes)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
-    print("[INFO] Modèle reconstruit avec state_dict.")
+# === Construction du modèle
+model = models.resnet18(pretrained=False)
+in_features = model.fc.in_features
+model.fc = nn.Linear(in_features, num_classes)
 
-# === Adapter la dernière couche si le nombre de classes a changé ===
-if model.fc.out_features != num_classes:
-    in_features = model.fc.in_features
-    model.fc = nn.Linear(in_features, num_classes)
-    print(f"[INFO] Couche de sortie ajustée : {num_classes} classes")
+# === Chargement des poids (state_dict)
+if os.path.exists(MODEL_PATH):
+    state_dict = torch.load(MODEL_PATH, map_location=DEVICE)
+    model.load_state_dict(state_dict)
+    print("[INFO] Poids chargés depuis le fichier .pth")
 
 model.to(DEVICE)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-# === Fine-tuning ===
+# === Fine-tuning
 model.train()
 for epoch in range(NUM_EPOCHS):
     total_loss = 0
@@ -81,7 +74,7 @@ for epoch in range(NUM_EPOCHS):
 
     print(f"[INFO] Époque {epoch+1} terminée - Loss: {total_loss:.4f}")
 
-# === Sauvegarde du nouveau modèle
+# === Sauvegarde des poids (state_dict)
 os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-torch.save(model, MODEL_PATH)
-print(f"[✅] Nouveau modèle enregistré dans {MODEL_PATH}")
+torch.save(model.state_dict(), MODEL_PATH)
+print(f"[✅] Poids sauvegardés dans {MODEL_PATH}")
