@@ -9,10 +9,13 @@ from datetime import datetime
 
 # === Config ===
 DATA_DIR = "retraining_dataset"
-MODEL_PATH = "models/model_latest.pth"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "model_latest.pth")
 NUM_EPOCHS = 5
 BATCH_SIZE = 16
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
+print(f"[INFO] Chemin absolu du modèle : {MODEL_PATH}")
 
 # === Transforms ===
 transform = transforms.Compose([
@@ -70,5 +73,6 @@ for epoch in range(NUM_EPOCHS):
     print(f"[INFO] Époque {epoch+1} terminée - Loss: {total_loss:.4f}")
 
 # === Sauvegarde du nouveau modèle
+os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True) 
 torch.save(model, MODEL_PATH)
 print(f"[✅] Nouveau modèle enregistré dans {MODEL_PATH}")
