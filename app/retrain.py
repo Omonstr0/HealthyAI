@@ -1,11 +1,14 @@
 import os
 import torch
 import torch.nn as nn
-from torchvision import datasets, transforms, models
+from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import shutil
 from datetime import datetime
+
+# === Import du modèle défini dans train_from_scratch.py ===
+from train_from_scratch import DeepFoodCNN
 
 # === Config ===
 DATA_DIR = "retraining_dataset"
@@ -19,8 +22,9 @@ print(f"[INFO] Chemin absolu du modèle : {MODEL_PATH}")
 
 # === Transforms ===
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.Resize((128, 128)),  # même taille que l'entraînement initial
     transforms.ToTensor(),
+    transforms.Normalize([0.5]*3, [0.5]*3)  # même normalisation
 ])
 
 # === Dataloader ===
@@ -33,7 +37,7 @@ idx_to_class = {v: k for k, v in class_to_idx.items()}
 num_classes = len(class_to_idx)
 print(f"[INFO] Nouvelles classes détectées : {class_to_idx}")
 
-# === Backup des poids existants ===
+# === Backup du modèle existant ===
 if os.path.exists(MODEL_PATH):
     BACKUP_DIR = os.path.join(BASE_DIR, "models", "backups")
     os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -41,23 +45,20 @@ if os.path.exists(MODEL_PATH):
     shutil.copy(MODEL_PATH, backup_name)
     print(f"[🕐] Backup créé : {backup_name}")
 
-# === Construction du modèle
-model = models.resnet18(pretrained=False)
-in_features = model.fc.in_features
-model.fc = nn.Linear(in_features, num_classes)
+# === Création du modèle
+model = DeepFoodCNN(num_classes).to(DEVICE)
 
-# === Chargement des poids (state_dict)
+# === Chargement des poids existants
 if os.path.exists(MODEL_PATH):
     state_dict = torch.load(MODEL_PATH, map_location=DEVICE)
     model.load_state_dict(state_dict)
     print("[INFO] Poids chargés depuis le fichier .pth")
 
-model.to(DEVICE)
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
-# === Fine-tuning
+# === Entraînement (fine-tuning)
 model.train()
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+
 for epoch in range(NUM_EPOCHS):
     total_loss = 0
     for images, labels in tqdm(dataloader, desc=f"Époque {epoch+1}/{NUM_EPOCHS}"):
@@ -74,7 +75,7 @@ for epoch in range(NUM_EPOCHS):
 
     print(f"[INFO] Époque {epoch+1} terminée - Loss: {total_loss:.4f}")
 
-# === Sauvegarde des poids (state_dict)
+# === Sauvegarde des nouveaux poids
 os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 torch.save(model.state_dict(), MODEL_PATH)
-print(f"[✅] Poids sauvegardés dans {MODEL_PATH}")
+print(f"[✅] Nouveau modèle sauvegardé dans {MODEL_PATH}")

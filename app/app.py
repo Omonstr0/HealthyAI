@@ -418,7 +418,7 @@ def correct_label(upload_id):
 
         # ✅ Si dossier >= 10 images, relance auto de retrain.py
         corrected_dir = os.path.join("retraining_dataset", corrected)
-        if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 10:
+        if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 2:
             import subprocess
             try:
                 subprocess.run(["python", "retrain.py"], check=True)
