@@ -408,6 +408,7 @@ def correct_label(upload_id):
 
     corrected = request.form.get('new_dish')
     if corrected:
+        print(f"[DEBUG] Correction reçue : {corrected}")
         upload.dish_name = corrected.strip().lower()
         upload.rating = None  # ✅ empêche l'affichage du champ de correction ensuite
         db.session.commit()
@@ -471,6 +472,7 @@ def correction(upload_id):
 
 
 def save_corrected_image(filename, label):
+    print(f"[DEBUG] Entrée dans save_corrected_image : filename={filename}, label={label}")
     src = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     dest_dir = os.path.join("retraining_dataset", label)
     os.makedirs(dest_dir, exist_ok=True)
