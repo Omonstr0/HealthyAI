@@ -421,7 +421,7 @@ def correct_label(upload_id):
         if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 10:
             import subprocess
             try:
-                subprocess.run(["python", "app/retrain.py"], check=True)
+                subprocess.run(["python", "retrain.py"], check=True)
                 flash("✔ Réentraînement déclenché automatiquement.", "info")
             except Exception as e:
                 flash("❌ Échec du réentraînement automatique.", "danger")
@@ -462,7 +462,7 @@ def correction(upload_id):
     if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 10:
         import subprocess
         try:
-            subprocess.run(["python", "app/retrain.py"], check=True)
+            subprocess.run(["python", "retrain.py"], check=True)
             flash("✔ Réentraînement déclenché avec les corrections utilisateurs.", "info")
         except Exception as e:
             flash("❌ Échec du réentraînement automatique.", "danger")
