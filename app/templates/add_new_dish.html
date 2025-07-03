@@ -62,11 +62,9 @@
     <h2>Ajouter un nouveau plat</h2>
 
     <p><strong>Image à corriger :</strong></p>
-    <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="Image du plat" style="max-width:300px;">
-
+    <img src="{{ url_for('static', filename='uploads/' + upload.filename) }}" alt="Image du plat" style="max-width:300px;">
     <form action="/submit_new_dish" method="post" enctype="multipart/form-data">
-        <input type="hidden" name="original_filename" value="{{ filename }}">
-
+    <input type="hidden" name="original_filename" value="{{ upload.filename }}">
         <label for="dish_name">Nom du plat :</label>
         <input type="text" name="dish_name" required>
 
