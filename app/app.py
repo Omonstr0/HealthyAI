@@ -76,15 +76,11 @@ nutrition_df = pd.read_csv('../plats.csv')
 
 def get_nutrition_from_food(dish_name):
     csv_dish_name = dish_name.lower().replace(" ", "_")
-
-    # 🔍 1. Recherche dans les noms anglais (colonne 'name')
     row = nutrition_df[nutrition_df['name'].str.lower() == csv_dish_name]
 
-    # 🔄 2. Si vide, recherche dans les noms français (colonne 'name_fr')
     if row.empty:
         row = nutrition_df[nutrition_df['name_fr'].str.lower() == csv_dish_name]
 
-    # ✅ 3. Retourne les données si trouvées
     if not row.empty:
         return {
             "kcal": float(row["kcal"].values[0]),
@@ -191,6 +187,84 @@ def dashboard():
                            image_url=session.get('last_image'),
                            detected_dish=session.get('last_dish'),
                            corrected_id=session.pop('corrected_id', None))
+
+
+@app.route('/add_new_dish/<int:upload_id>')
+def add_new_dish(upload_id):
+    if 'user_id' not in session:
+        flash("Veuillez vous connecter.", "warning")
+        return redirect(url_for('signin'))
+    upload = Upload.query.get_or_404(upload_id)
+    if upload.user_id != session['user_id']:
+        flash("Accès non autorisé", "danger")
+        return redirect(url_for('dashboard'))
+    return render_template("add_new_dish.html", upload=upload)
+
+
+@app.route('/submit_new_dish', methods=['POST'])
+def submit_new_dish():
+    dish_name = request.form.get("dish_name", "").strip().lower().replace(" ", "_")
+    kcal = request.form.get("kcal")
+    proteins = request.form.get("proteins")
+    fats = request.form.get("fats")
+    carbs = request.form.get("carbs")
+    original_filename = request.form.get("original_filename")
+
+    if not dish_name or not kcal or not proteins or not fats or not carbs:
+        flash("Tous les champs sont requis.", "warning")
+        return redirect(url_for('dashboard'))
+
+    # 🔠 1. Ajout à classes_food101.txt
+    class_file = "classes_food101.txt"
+    if os.path.exists(class_file):
+        with open(class_file, "r") as f:
+            classes = [line.strip() for line in f.readlines()]
+    else:
+        classes = []
+
+    if dish_name not in classes:
+        with open(class_file, "a") as f:
+            f.write(dish_name + "\n")
+
+    # 🍽️ 2. Ajout dans plats.csv
+    csv_file = "plats.csv"
+    exists = os.path.exists(csv_file)
+    with open(csv_file, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not exists:
+            writer.writerow(["name", "name_fr", "kcal", "protein_g", "carbs_g", "fat_g"])
+        writer.writerow([dish_name, dish_name.replace("_", " ").title(), kcal, proteins, carbs, fats])
+
+    # 🖼️ 3. Créer le dossier retraining_dataset/<dish_name>
+    dish_folder = os.path.join("retraining_dataset", dish_name)
+    os.makedirs(dish_folder, exist_ok=True)
+
+    # 📥 4. Sauvegarde de l’image originale
+    src = os.path.join(app.config['UPLOAD_FOLDER'], original_filename)
+    dst = os.path.join(dish_folder, original_filename)
+    if os.path.exists(src):
+        shutil.copy(src, dst)
+
+    # 📸 5. Images supplémentaires
+    files = request.files.getlist("images")
+    for file in files:
+        if file and allowed_file(file.filename):
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            new_filename = f"{uuid.uuid4().hex}.{ext}"
+            file.save(os.path.join(dish_folder, new_filename))
+
+    # 🤖 6. Déclenchement du réentraînement si ≥ 10 images
+    if len(os.listdir(dish_folder)) >= 10:
+        import subprocess
+        try:
+            subprocess.run(["python", "retrain.py"], check=True)
+            flash("✔ Réentraînement déclenché avec succès.", "success")
+        except Exception as e:
+            flash("❌ Échec du réentraînement automatique.", "danger")
+            print(f"[ERREUR] Réentraînement : {e}")
+
+    flash("✅ Nouveau plat ajouté avec succès.", "success")
+    return redirect(url_for("dashboard"))
 
 
 def allowed_file(filename):
