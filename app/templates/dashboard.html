@@ -176,17 +176,16 @@
                   <input type="hidden" name="rating" value="1">
                   <button type="submit" class="btn btn-sm btn-outline-success w-100">👍</button>
                 </form>
-                <!-- 👎 -->
-                <form onsubmit="event.preventDefault(); toggleCorrection({{ img.id }});" class="flex-fill">
-                  <button class="btn btn-sm btn-outline-warning w-100 flex-fill" onclick="toggleCorrection({{ img.id }})">👎</button>
-                </form>
+
+                <!-- 👎 : PAS de <form> ici, juste un bouton -->
+                <button class="btn btn-sm btn-outline-warning w-100 flex-fill" onclick="toggleCorrection({{ img.id }})">👎</button>
               </div>
 
               <div id="correction-box-{{ img.id }}" class="mt-2 d-none">
                 <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" onsubmit="return confirmCorrection(this);">
                   <input type="hidden" name="rating" value="0">
                   <input type="text" name="correction" class="form-control form-control-sm mb-1"
-                         placeholder="Nom correct du plat" required>
+                        placeholder="Nom correct du plat" required>
                   <button type="submit" class="btn btn-sm btn-outline-warning w-100">Corriger</button>
                 </form>
               </div>
@@ -218,6 +217,7 @@
       reader.readAsDataURL(event.target.files[0]);
     }
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
     function toggleCorrection(id) {
       const box = document.getElementById("correction-box-" + id);
       box.classList.toggle("d-none");
