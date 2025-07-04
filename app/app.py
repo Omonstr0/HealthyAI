@@ -419,15 +419,54 @@ def feedback(upload_id):
         flash("Note invalide.", 'warning')
         return redirect(url_for('dashboard'))
 
-    # Sauvegarde en base
     upload.rating = rating
+
+    # 🔽 Ajout : gestion du champ de correction
+    if rating == 0:
+        correction = request.form.get("correction", "").strip().lower().replace(" ", "_")
+        if correction:
+            upload.dish_name = correction  # ➤ Mise à jour du nom du plat en base
+
+            # 🔽 Optionnel : créer le dossier si non existant
+            img_dir = os.path.join("dataset/images", correction)
+            os.makedirs(img_dir, exist_ok=True)
+
+            # 🔽 Copier l'image uploadée dans le bon dossier
+            src = os.path.join(app.config["UPLOAD_FOLDER"], upload.filename)
+            dst = os.path.join(img_dir, upload.filename)
+            try:
+                shutil.copy(src, dst)
+            except Exception as e:
+                print(f"[ERREUR] Copie dans dataset/images/ échouée : {e}")
+
+            # 🔽 Ajouter le plat à classes_food101.txt s’il est nouveau
+            with open("classes_food101.txt", "r") as f:
+                classes = [line.strip() for line in f.readlines()]
+            if correction not in classes:
+                with open("classes_food101.txt", "a") as f:
+                    f.write(f"{correction}\n")
+
+            # 🔽 Ajouter une ligne dans plats.csv s’il est nouveau
+            plats_file = "plats.csv"
+            if os.path.exists(plats_file):
+                with open(plats_file, newline='') as f:
+                    reader = csv.reader(f)
+                    if correction not in [row[0] for row in reader]:
+                        with open(plats_file, "a", newline="") as fw:
+                            writer = csv.writer(fw)
+                            writer.writerow([correction, 0, 0, 0, 0])  # valeurs fictives par défaut
+            else:
+                with open(plats_file, "w", newline="") as fw:
+                    writer = csv.writer(fw)
+                    writer.writerow(["name", "kcal", "protein_g", "carbs_g", "fat_g"])
+                    writer.writerow([correction, 0, 0, 0, 0])
+
+    # Commit final
     db.session.commit()
 
-    # Créer le dossier feedback_data/<rating>/ si nécessaire
+    # Enregistrer dans feedback_data/
     feedback_dir = os.path.join("feedback_data", str(rating))
     os.makedirs(feedback_dir, exist_ok=True)
-
-    # Copier l’image dans feedback_data/<rating>/
     src_path = os.path.join(app.config['UPLOAD_FOLDER'], upload.filename)
     dst_path = os.path.join(feedback_dir, upload.filename)
     try:
@@ -435,37 +474,13 @@ def feedback(upload_id):
     except Exception as e:
         print(f"[ERREUR] Copie vers feedback_data échouée : {e}")
 
-    # Ajouter une ligne dans feedback_log.csv
+    # Log CSV
     log_file = "feedback_log.csv"
     predicted_dish = upload.dish_name or "Inconnu"
     confidence = session.get("last_confidence", -1)
     with open(log_file, "a", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([upload.filename, predicted_dish, confidence, rating])
-
-    # Si feedback négatif, permettre la correction
-    if rating == 0:
-        new_dish_name = request.form.get("correction", "").strip().lower().replace(" ", "_")
-
-        # Ajouter à classes_food101.txt si non existant
-        class_file = "classes_food101.txt"
-        with open(class_file, "r") as f:
-            classes = [line.strip() for line in f.readlines()]
-        if new_dish_name not in classes:
-            with open(class_file, "a") as f:
-                f.write(new_dish_name + "\n")
-
-        # Créer dossier dans dataset/images/ si absent
-        image_dir = os.path.join("dataset", "images", new_dish_name)
-        os.makedirs(image_dir, exist_ok=True)
-
-        # Copier l'image dans le dossier du plat corrigé
-        new_filename = f"{uuid.uuid4().hex}.jpg"
-        dst_img_path = os.path.join(image_dir, new_filename)
-        try:
-            shutil.copy(src_path, dst_img_path)
-        except Exception as e:
-            print(f"[ERREUR] Copie dans dataset/images échouée : {e}")
 
     flash("Merci pour votre retour !", "success")
     return redirect(url_for('dashboard'))
