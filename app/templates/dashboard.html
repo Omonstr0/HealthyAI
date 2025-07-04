@@ -168,25 +168,30 @@
             <div class="col-md-3 text-center mb-4">
               <a href="{{ url_for('analyse', upload_id=img.id) }}" data-bs-toggle="tooltip" title="Voir l’analyse complète">
                 <img src="{{ url_for('static', filename='uploads/' ~ img.filename) }}"
-                    class="img-fluid history-img {% if selected_id == img.id %}selected-img{% endif %}"
-                    style="max-height:150px;">
+                     class="img-fluid history-img {% if selected_id == img.id %}selected-img{% endif %}"
+                     style="max-height:150px;">
               </a>
               <p><strong>{{ (img.dish_name or 'Plat inconnu').replace('_',' ').capitalize() }}</strong></p>
 
-              <!-- Feedback POSITIF -->
-              <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" style="display:inline-block;">
-                <input type="hidden" name="rating" value="1">
-                <button type="submit" class="btn btn-sm btn-outline-success">👍</button>
-              </form>
+        <!-- Feedback POSITIF -->
+        <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" style="display:inline-block;">
+          <input type="hidden" name="rating" value="1">
+          <button type="submit" class="btn btn-sm btn-outline-success">👍</button>
+        </form>
 
-              <!-- Feedback NÉGATIF avec champ de correction -->
-              <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" class="mt-2" onsubmit="return confirmCorrection(this);">                <input type="hidden" name="rating" value="0">
-                <input type="text" name="correction" class="form-control form-control-sm mb-1"
-                      placeholder="Nom correct du plat" required>
-                <button type="submit" class="btn btn-sm btn-outline-warning w-100">👎 Corriger</button>
-              </form>
+        <!-- Feedback NÉGATIF - bouton déclencheur -->
+        <button class="btn btn-sm btn-outline-warning mt-2 w-100" onclick="toggleCorrection({{ img.id }})">👎 Corriger</button>
 
-              <!-- Supprimer l'image -->
+        <!-- Champ de correction caché au départ -->
+        <form id="correction-form-{{ img.id }}" action="{{ url_for('feedback', upload_id=img.id) }}"
+              method="POST" class="mt-2 d-none" onsubmit="return confirmCorrection(this);">
+          <input type="hidden" name="rating" value="0">
+          <input type="text" name="correction" class="form-control form-control-sm mb-1"
+                placeholder="Nom correct du plat" required>
+          <button type="submit" class="btn btn-sm btn-outline-warning w-100">Valider la correction</button>
+        </form>
+
+              <!-- Supprimer -->
               <form action="{{ url_for('delete_upload', upload_id=img.id) }}" method="POST" class="mt-2">
                 <button type="submit" class="btn btn-sm btn-outline-danger w-100">Supprimer</button>
               </form>
@@ -207,20 +212,32 @@
     function previewImage(event) {
       const reader = new FileReader();
       const imageField = document.getElementById('imagePreview');
-      reader.onload = () => { imageField.src = reader.result; imageField.classList.remove('d-none'); };
+      reader.onload = () => {
+        imageField.src = reader.result;
+        imageField.classList.remove('d-none');
+      };
       reader.readAsDataURL(event.target.files[0]);
     }
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
-  </script>
-  <script>
-  function confirmCorrection(form) {
-    const input = form.querySelector('input[name="correction"]');
-    if (!input.value.trim()) {
-      alert("Veuillez entrer un nom de plat corrigé.");
-      return false;
+
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+      new bootstrap.Tooltip(el)
+    );
+
+    function toggleCorrection(uploadId) {
+      const form = document.getElementById(`correction-form-${uploadId}`);
+      form.classList.toggle('d-none');
     }
-    return true;
-  }
-</script>
+
+    function confirmCorrection(form) {
+      const input = form.querySelector('input[name="correction"]');
+      if (!input.value.trim()) {
+        alert("Veuillez entrer un nom de plat corrigé.");
+        return false;
+      }
+      // Masquer le champ après soumission
+      form.classList.add('d-none');
+      return true;
+    }
+  </script>
 </body>
 </html>
