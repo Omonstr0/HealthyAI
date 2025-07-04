@@ -29,6 +29,20 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# ========== 🧠 Auto-download du dataset si vide ==========
+DATASET_DIR = "dataset/images/"
+ZIP_URL = "https://huggingface.co/datasets/Omonstr0/healthyai-dataset/resolve/main/dataset.zip"
+ZIP_PATH = "dataset.zip"
+
+if not os.path.exists(DATASET_DIR) or len(os.listdir(DATASET_DIR)) < 10:
+    import urllib.request, zipfile
+    print("[INFO] Téléchargement du dataset...")
+    urllib.request.urlretrieve(ZIP_URL, ZIP_PATH)
+    with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
+        zip_ref.extractall("dataset/")
+    print("[INFO] Dataset prêt.")
+
+
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
