@@ -72,6 +72,20 @@ if __name__ == "__main__":
         classes = [line.strip() for line in f.readlines()]
     NUM_CLASSES = len(classes)
 
+    # Vérification 1 : des dossiers pour chaque classe
+    missing_dirs = [cls for cls in classes if not os.path.isdir(os.path.join(DATASET_PATH, cls))]
+    if missing_dirs:
+        print(f"[ERREUR] Les dossiers suivants sont manquants dans {DATASET_PATH} : {missing_dirs}")
+        print("💡 Vérifie que chaque classe de classes_food101.txt a un dossier correspondant avec des images.")
+        exit(1)
+
+    # Vérification 2 : dossiers présents non référencés
+    existing_dirs = [d for d in os.listdir(DATASET_PATH) if os.path.isdir(os.path.join(DATASET_PATH, d))]
+    unused_dirs = [d for d in existing_dirs if d not in classes]
+    if unused_dirs:
+        print(f"[AVERTISSEMENT] Les dossiers suivants sont présents dans {DATASET_PATH} mais non référencés dans {CLASS_FILE} : {unused_dirs}")
+        print("💡 Si ce sont de nouvelles classes, ajoute-les à classes_food101.txt.")
+
     # ============ TRANSFORMATIONS ============
     transform = transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE, scale=(0.8, 1.0)),  # crop aléatoire

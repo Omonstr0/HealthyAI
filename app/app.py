@@ -15,28 +15,6 @@ import torch
 import pandas as pd
 
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-MULTI_ITEMS_DISHES = [
-    "bibimbap",
-    "breakfast_burrito",
-    "cheese_plate",           # plateau de fromages
-    "club_sandwich",
-    "dumplings",              # souvent en groupe
-    "falafel",                # souvent servis en plusieurs pièces
-    "fish_and_chips",
-    "french_fries",
-    "fried_calamari",         # souvent plusieurs
-    "gyoza",                  # souvent plusieurs
-    "nachos",                 # plat partagé
-    "onion_rings",
-    "poutine",                # frites + sauce + fromage
-    "ravioli",
-    "samosa",
-    "spring_rolls",
-    "sushi",                  # plusieurs pièces visibles
-    "tacos",                  # souvent 2 ou 3 visibles
-    "takoyaki",
-    "waffles,"# plusieurs boules
-]
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')
@@ -465,6 +443,30 @@ def feedback(upload_id):
         writer = csv.writer(f)
         writer.writerow([upload.filename, predicted_dish, confidence, rating])
 
+    # Si feedback négatif, permettre la correction
+    if rating == 0:
+        new_dish_name = request.form.get("correction", "").strip().lower().replace(" ", "_")
+
+        # Ajouter à classes_food101.txt si non existant
+        class_file = "classes_food101.txt"
+        with open(class_file, "r") as f:
+            classes = [line.strip() for line in f.readlines()]
+        if new_dish_name not in classes:
+            with open(class_file, "a") as f:
+                f.write(new_dish_name + "\n")
+
+        # Créer dossier dans dataset/images/ si absent
+        image_dir = os.path.join("dataset", "images", new_dish_name)
+        os.makedirs(image_dir, exist_ok=True)
+
+        # Copier l'image dans le dossier du plat corrigé
+        new_filename = f"{uuid.uuid4().hex}.jpg"
+        dst_img_path = os.path.join(image_dir, new_filename)
+        try:
+            shutil.copy(src_path, dst_img_path)
+        except Exception as e:
+            print(f"[ERREUR] Copie dans dataset/images échouée : {e}")
+
     flash("Merci pour votre retour !", "success")
     return redirect(url_for('dashboard'))
 
@@ -475,36 +477,37 @@ def correct_label(upload_id):
         return redirect(url_for('signin'))
 
     upload = Upload.query.get_or_404(upload_id)
-
     if upload.user_id != session['user_id']:
         flash("Action non autorisée.", 'danger')
         return redirect(url_for('dashboard'))
 
-    corrected = request.form.get('new_dish')
-    if corrected:
-        print(f"[DEBUG] Correction reçue : {corrected}")
-        upload.dish_name = corrected.strip().lower()
-        upload.rating = None  # ✅ empêche l'affichage du champ de correction ensuite
-        db.session.commit()
+    corrected = request.form.get('new_dish', '').strip().lower().replace(" ", "_")
+    if not corrected:
+        flash("Nom du plat invalide.", 'warning')
+        return redirect(url_for('dashboard'))
 
-        # ✅ Sauvegarde dans retraining_dataset/<corrected>/
-        save_corrected_image(upload.filename, corrected)
+    # Met à jour la DB
+    upload.dish_name = corrected
+    upload.rating = None
+    db.session.commit()
 
-        # ✅ Si dossier >= 10 images, relance auto de retrain.py
-        corrected_dir = os.path.join("retraining_dataset", corrected)
-        if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 2:
-            import subprocess
-            try:
-                subprocess.run(["python", "retrain.py"], check=True)
-                flash("✔ Réentraînement déclenché automatiquement.", "info")
-            except Exception as e:
-                flash("❌ Échec du réentraînement automatique.", "danger")
-                print(f"[ERREUR] Réentraînement : {e}")
+    # Copie image dans retraining_dataset/<corrected>/
+    save_corrected_image(upload.filename, corrected)
 
-        flash("Nom du plat mis à jour ✅", "success")
+    # Vérifie s’il y a assez d’exemples pour relancer le training
+    corrected_dir = os.path.join("retraining_dataset", corrected)
+    total_images = sum([len(files) for _, _, files in os.walk("retraining_dataset")])
+    if total_images >= 10:
+        import subprocess
+        try:
+            subprocess.run(["python", "train_from_scratch.py"], check=True)
+            flash("✔ Modèle réentraîné avec toutes les corrections.", "info")
+        except Exception as e:
+            flash("❌ Échec du réentraînement automatique.", "danger")
+            print(f"[ERREUR] train_from_scratch : {e}")
 
+    flash("Correction enregistrée ✅", "success")
     return redirect(url_for('dashboard'))
-
 
 @app.route('/correction/<int:upload_id>', methods=['POST'])
 def correction(upload_id):

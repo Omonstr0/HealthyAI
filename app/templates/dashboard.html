@@ -168,19 +168,27 @@
             <div class="col-md-3 text-center mb-4">
               <a href="{{ url_for('analyse', upload_id=img.id) }}" data-bs-toggle="tooltip" title="Voir l’analyse complète">
                 <img src="{{ url_for('static', filename='uploads/' ~ img.filename) }}"
-                     class="img-fluid history-img {% if selected_id == img.id %}selected-img{% endif %}"
-                     style="max-height:150px;">
+                    class="img-fluid history-img {% if selected_id == img.id %}selected-img{% endif %}"
+                    style="max-height:150px;">
               </a>
               <p><strong>{{ (img.dish_name or 'Plat inconnu').replace('_',' ').capitalize() }}</strong></p>
-              <div class="mb-2">
-                <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" style="display: inline;">
-                  <input type="hidden" name="rating" value="1">
-                  <button type="submit" class="btn btn-sm btn-outline-success">👍</button>
-                </form>
-                <a href="{{ url_for('add_new_dish', upload_id=img.id) }}" class="btn btn-sm btn-outline-warning">👎</a>
-              </div>
-              <form action="{{ url_for('delete_upload', upload_id=img.id) }}" method="POST" style="display: inline;">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+
+              <!-- Feedback POSITIF -->
+              <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" style="display:inline-block;">
+                <input type="hidden" name="rating" value="1">
+                <button type="submit" class="btn btn-sm btn-outline-success">👍</button>
+              </form>
+
+              <!-- Feedback NÉGATIF avec champ de correction -->
+              <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" class="mt-2" onsubmit="return confirmCorrection(this);">                <input type="hidden" name="rating" value="0">
+                <input type="text" name="correction" class="form-control form-control-sm mb-1"
+                      placeholder="Nom correct du plat" required>
+                <button type="submit" class="btn btn-sm btn-outline-warning w-100">👎 Corriger</button>
+              </form>
+
+              <!-- Supprimer l'image -->
+              <form action="{{ url_for('delete_upload', upload_id=img.id) }}" method="POST" class="mt-2">
+                <button type="submit" class="btn btn-sm btn-outline-danger w-100">Supprimer</button>
               </form>
             </div>
           {% endfor %}
@@ -204,5 +212,15 @@
     }
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
   </script>
+  <script>
+  function confirmCorrection(form) {
+    const input = form.querySelector('input[name="correction"]');
+    if (!input.value.trim()) {
+      alert("Veuillez entrer un nom de plat corrigé.");
+      return false;
+    }
+    return true;
+  }
+</script>
 </body>
 </html>
