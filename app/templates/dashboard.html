@@ -171,12 +171,15 @@
               <p><strong>{{ (img.dish_name or 'Plat inconnu').replace('_',' ').capitalize() }}</strong></p>
 
               <div class="d-flex justify-content-center gap-2 mt-2">
+                <!-- 👍 -->
                 <form action="{{ url_for('feedback', upload_id=img.id) }}" method="POST" class="flex-fill">
                   <input type="hidden" name="rating" value="1">
                   <button type="submit" class="btn btn-sm btn-outline-success w-100">👍</button>
                 </form>
-
-                <button class="btn btn-sm btn-outline-warning w-100 flex-fill" onclick="toggleCorrection({{ img.id }})">👎</button>
+                <!-- 👎 -->
+                <form onsubmit="event.preventDefault(); toggleCorrection({{ img.id }});" class="flex-fill">
+                  <button class="btn btn-sm btn-outline-warning w-100 flex-fill" onclick="toggleCorrection({{ img.id }})">👎</button>
+                </form>
               </div>
 
               <div id="correction-box-{{ img.id }}" class="mt-2 d-none">
