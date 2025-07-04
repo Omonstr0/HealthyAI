@@ -180,7 +180,7 @@
         </form>
 
         <!-- Feedback NÉGATIF - bouton déclencheur -->
-        <button class="btn btn-sm btn-outline-warning mt-2 w-100" onclick="toggleCorrection({{ img.id }})">👎 Corriger</button>
+        <button class="btn btn-sm btn-outline-warning mt-2 w-100" onclick="toggleCorrection({{ img.id }})">👎</button>
 
         <!-- Champ de correction caché au départ -->
         <form id="correction-form-{{ img.id }}" action="{{ url_for('feedback', upload_id=img.id) }}"
