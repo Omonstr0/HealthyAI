@@ -64,7 +64,7 @@ class Upload(db.Model):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-nutrition_df = pd.read_csv('../plats.csv')
+nutrition_df = pd.read_csv(os.path.join(app.root_path, 'plats.csv'))
 
 def get_nutrition_from_food(dish_name):
     csv_dish_name = dish_name.lower().replace(" ", "_")
@@ -337,7 +337,7 @@ def upload():
         uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
 
         # ✅ Pré-écriture du log feedback (sans rating pour l’instant)
-        log_path = "../feedback_csv/feedback_log.csv"
+        log_path = "feedback_csv/feedback_log.csv"
         if not os.path.exists(log_path):
             with open(log_path, "w", newline="") as f:
                 writer = csv.writer(f)
@@ -461,19 +461,25 @@ def feedback(upload_id):
                     f.write(f"{correction}\n")
 
             # 🔽 Ajouter une ligne dans plats.csv s’il est nouveau
-            plats_file = "plats.csv"
+            plats_file = os.path.join(app.root_path, "plats.csv")
+            correction_exists = False
+
             if os.path.exists(plats_file):
                 with open(plats_file, newline='') as f:
                     reader = csv.reader(f)
-                    if correction not in [row[0] for row in reader]:
-                        with open(plats_file, "a", newline="") as fw:
-                            writer = csv.writer(fw)
-                            writer.writerow([correction, 0, 0, 0, 0])  # valeurs fictives par défaut
-            else:
-                with open(plats_file, "w", newline="") as fw:
+                    for row in reader:
+                        if row and row[0] == correction:
+                            correction_exists = True
+                            break
+
+            # Si le plat n'existe pas encore, on l’ajoute
+            if not correction_exists:
+                with open(plats_file, "a", newline="") as fw:
                     writer = csv.writer(fw)
-                    writer.writerow(["name", "kcal", "protein_g", "carbs_g", "fat_g"])
-                    writer.writerow([correction, 0, 0, 0, 0])
+                    # Si le fichier est vide, écrire l'en-tête
+                    if os.path.getsize(plats_file) == 0:
+                        writer.writerow(["name", "name_fr", "kcal", "protein_g", "carbs_g", "fat_g"])
+                    writer.writerow([correction, correction.replace("_", " ").title(), 0, 0, 0, 0])
 
     # Commit final
     db.session.commit()
@@ -489,7 +495,7 @@ def feedback(upload_id):
         print(f"[ERREUR] Copie vers feedback_data échouée : {e}")
 
     # Log CSV
-    log_file = "feedback_log.csv"
+    log_file = "feedback_csv/feedback_log.csv"
     predicted_dish = upload.dish_name or "Inconnu"
     confidence = session.get("last_confidence", -1)
     with open(log_file, "a", newline="") as f:
