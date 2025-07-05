@@ -59,7 +59,7 @@ if __name__ == "__main__":
     DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     print(f"[INFO] Entraînement sur : {DEVICE}")
 
-    DATASET_PATH = "dataset/images"
+    DATASET_PATH = "dataset/dataset/images"
     MODEL_PATH = "models/model_latest.pth"
     CLASS_FILE = "classes_food101.txt"
     IMAGE_SIZE = 128
