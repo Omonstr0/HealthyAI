@@ -1,10 +1,8 @@
-# predict.py
-
+import os
 import torch
 from torchvision import transforms
 from PIL import Image
-from train_from_scratch import DeepFoodCNN  # Assure-toi que ce nom correspond
-import os
+from train_from_scratch import DeepFoodCNN
 
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -21,9 +19,13 @@ transform = transforms.Compose([
     transforms.Normalize([0.5]*3, [0.5]*3)
 ])
 
+# Résolution dynamique du chemin vers le modèle
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "model_latest.pth")
+
 # Chargement du modèle
 model = DeepFoodCNN(num_classes=num_classes)
-model.load_state_dict(torch.load("../models/model_latest.pth", map_location=DEVICE))
+model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
 model.eval()
 
 def predict_food(image_path):

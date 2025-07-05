@@ -60,7 +60,7 @@ if __name__ == "__main__":
     print(f"[INFO] Entraînement sur : {DEVICE}")
 
     DATASET_PATH = "dataset/images"
-    MODEL_PATH = "food_scratch_model.pth"
+    MODEL_PATH = "models/model_latest.pth"
     CLASS_FILE = "classes_food101.txt"
     IMAGE_SIZE = 128
     BATCH_SIZE = 32
