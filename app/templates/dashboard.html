@@ -133,6 +133,15 @@
         </div>
         <button type="submit" class="btn-upload">Téléverser la photo</button>
       </form>
+
+      <div id="training-progress-container" class="mt-3 d-none">
+        <label for="trainingProgressBar" class="form-label">Progression de l'entraînement</label>
+        <div class="progress">
+          <div id="trainingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+              role="progressbar" style="width: 0%">0%</div>
+        </div>
+      </div>
+
       {% if image_url %}
         <img src="{{ image_url }}" class="preview-img" alt="Image uploadée">
         {% if detected_dish %}
@@ -231,6 +240,34 @@
       }
       return true;
     }
+
+    function updateProgress() {
+        fetch("/training_status")
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById("training-progress-container");
+                const bar = document.getElementById("trainingProgressBar");
+
+                if (data.total && data.epoch) {
+                    container.classList.remove("d-none");
+                    const progress = Math.round((data.epoch / data.total) * 100);
+                    bar.style.width = `${progress}%`;
+                    bar.innerText = `${progress}%`;
+                }
+
+                if (data.done) {
+                    bar.classList.remove("progress-bar-animated");
+                    bar.classList.add("bg-success");
+                    bar.innerText = "✅ Terminé";
+                }
+            })
+            .catch(error => console.error("Erreur progression :", error));
+    }
+
+    // 👇 Appel initial + mise à jour toutes les 5 secondes
+    updateProgress();
+    setInterval(updateProgress, 5000);
+
   </script>
 </body>
 </html>

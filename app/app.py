@@ -458,6 +458,16 @@ def analytics():
     return render_template('analytics.html')
 
 
+@app.route('/training_status')
+def training_status():
+    import json
+    status_file = "training_status.json"
+    if not os.path.exists(status_file):
+        return {"epoch": 0, "total": 1, "done": False}
+    with open(status_file, "r") as f:
+        return json.load(f)
+
+
 # Déconnexion
 @app.route('/logout')
 def logout():

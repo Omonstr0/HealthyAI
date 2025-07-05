@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -62,6 +63,7 @@ if __name__ == "__main__":
     DATASET_PATH = "dataset/dataset/images"
     MODEL_PATH = "models/model_latest.pth"
     CLASS_FILE = "classes_food101.txt"
+    STATUS_FILE = "training_status.json"
     IMAGE_SIZE = 128
     BATCH_SIZE = 32
     EPOCHS = 75
@@ -72,14 +74,14 @@ if __name__ == "__main__":
         classes = [line.strip() for line in f.readlines()]
     NUM_CLASSES = len(classes)
 
-    # Vérification 1 : des dossiers pour chaque classe
+    # Vérification 1 : dossiers manquants
     missing_dirs = [cls for cls in classes if not os.path.isdir(os.path.join(DATASET_PATH, cls))]
     if missing_dirs:
         print(f"[ERREUR] Les dossiers suivants sont manquants dans {DATASET_PATH} : {missing_dirs}")
         print("💡 Vérifie que chaque classe de classes_food101.txt a un dossier correspondant avec des images.")
         exit(1)
 
-    # Vérification 2 : dossiers présents non référencés
+    # Vérification 2 : dossiers non référencés
     existing_dirs = [d for d in os.listdir(DATASET_PATH) if os.path.isdir(os.path.join(DATASET_PATH, d))]
     unused_dirs = [d for d in existing_dirs if d not in classes]
     if unused_dirs:
@@ -88,9 +90,9 @@ if __name__ == "__main__":
 
     # ============ TRANSFORMATIONS ============
     transform = transforms.Compose([
-        transforms.RandomResizedCrop(IMAGE_SIZE, scale=(0.8, 1.0)),  # crop aléatoire
-        transforms.RandomHorizontalFlip(),                          # flip horizontal
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # légères variations de couleur
+        transforms.RandomResizedCrop(IMAGE_SIZE, scale=(0.8, 1.0)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
         transforms.Normalize([0.5]*3, [0.5]*3)
     ])
@@ -113,6 +115,11 @@ if __name__ == "__main__":
     for epoch in range(EPOCHS):
         model.train()
         running_loss = 0.0
+
+        # ✅ Met à jour le fichier JSON de statut
+        with open(STATUS_FILE, "w") as f:
+            json.dump({"epoch": epoch + 1, "total": EPOCHS}, f)
+
         for imgs, labels in tqdm(train_loader, desc=f"[Epoch {epoch+1}/{EPOCHS}]"):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             optimizer.zero_grad()
@@ -140,3 +147,7 @@ if __name__ == "__main__":
     # ============ SAUVEGARDE ============
     torch.save(model.state_dict(), MODEL_PATH)
     print(f"[✔] Modèle sauvegardé dans {MODEL_PATH}")
+
+    # ✅ Entraînement terminé : mise à jour du JSON
+    with open(STATUS_FILE, "w") as f:
+        json.dump({"epoch": EPOCHS, "total": EPOCHS, "done": True}, f)
