@@ -442,7 +442,7 @@ def feedback(upload_id):
             upload.dish_name = correction  # ➤ Mise à jour du nom du plat en base
 
             # 🔽 Optionnel : créer le dossier si non existant
-            img_dir = os.path.join("dataset/images", correction)
+            img_dir = os.path.join("dataset", "dataset", "images", correction)
             os.makedirs(img_dir, exist_ok=True)
 
             # 🔽 Copier l'image uploadée dans le bon dossier
