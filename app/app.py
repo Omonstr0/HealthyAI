@@ -180,85 +180,6 @@ def dashboard():
                            detected_dish=session.get('last_dish'),
                            corrected_id=session.pop('corrected_id', None))
 
-
-@app.route('/add_new_dish/<int:upload_id>')
-def add_new_dish(upload_id):
-    if 'user_id' not in session:
-        flash("Veuillez vous connecter.", "warning")
-        return redirect(url_for('signin'))
-    upload = Upload.query.get_or_404(upload_id)
-    if upload.user_id != session['user_id']:
-        flash("Accès non autorisé", "danger")
-        return redirect(url_for('dashboard'))
-    return render_template("add_new_dish.html", upload=upload)
-
-
-@app.route('/submit_new_dish', methods=['POST'])
-def submit_new_dish():
-    dish_name = request.form.get("dish_name", "").strip().lower().replace(" ", "_")
-    kcal = request.form.get("kcal")
-    proteins = request.form.get("proteins")
-    fats = request.form.get("fats")
-    carbs = request.form.get("carbs")
-    original_filename = request.form.get("original_filename")
-
-    if not dish_name or not kcal or not proteins or not fats or not carbs:
-        flash("Tous les champs sont requis.", "warning")
-        return redirect(url_for('dashboard'))
-
-    # 🔠 1. Ajout à classes_food101.txt
-    class_file = "classes_food101.txt"
-    if os.path.exists(class_file):
-        with open(class_file, "r") as f:
-            classes = [line.strip() for line in f.readlines()]
-    else:
-        classes = []
-
-    if dish_name not in classes:
-        with open(class_file, "a") as f:
-            f.write(dish_name + "\n")
-
-    # 🍽️ 2. Ajout dans plats.csv
-    csv_file = "plats.csv"
-    exists = os.path.exists(csv_file)
-    with open(csv_file, "a", newline="") as f:
-        writer = csv.writer(f)
-        if not exists:
-            writer.writerow(["name", "name_fr", "kcal", "protein_g", "carbs_g", "fat_g"])
-        writer.writerow([dish_name, dish_name.replace("_", " ").title(), kcal, proteins, carbs, fats])
-
-    # 🖼️ 3. Créer le dossier retraining_dataset/<dish_name>
-    dish_folder = os.path.join("retraining_dataset", dish_name)
-    os.makedirs(dish_folder, exist_ok=True)
-
-    # 📥 4. Sauvegarde de l’image originale
-    src = os.path.join(app.config['UPLOAD_FOLDER'], original_filename)
-    dst = os.path.join(dish_folder, original_filename)
-    if os.path.exists(src):
-        shutil.copy(src, dst)
-
-    # 📸 5. Images supplémentaires
-    files = request.files.getlist("images")
-    for file in files:
-        if file and allowed_file(file.filename):
-            ext = file.filename.rsplit('.', 1)[1].lower()
-            new_filename = f"{uuid.uuid4().hex}.{ext}"
-            file.save(os.path.join(dish_folder, new_filename))
-
-    # 🤖 6. Déclenchement du réentraînement si ≥ 10 images
-    if len(os.listdir(dish_folder)) >= 10:
-        import subprocess
-        try:
-            subprocess.run(["python", "retrain.py"], check=True)
-            flash("✔ Réentraînement déclenché avec succès.", "success")
-        except Exception as e:
-            flash("❌ Échec du réentraînement automatique.", "danger")
-            print(f"[ERREUR] Réentraînement : {e}")
-
-    flash("✅ Nouveau plat ajouté avec succès.", "success")
-    return redirect(url_for("dashboard"))
-
-
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -481,6 +402,21 @@ def feedback(upload_id):
                         writer.writerow(["name", "name_fr", "kcal", "protein_g", "carbs_g", "fat_g"])
                     writer.writerow([correction, correction.replace("_", " ").title(), 0, 0, 0, 0])
 
+
+            # 🧠 Vérifie s’il y a au moins 10 images dans le dossier → lancer training
+            total_images = len([
+                f for f in os.listdir(img_dir)
+                if os.path.isfile(os.path.join(img_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png'))
+            ])
+            if total_images >= 10:
+                import subprocess
+                try:
+                    subprocess.run(["python", "train_from_scratch.py"], check=True)
+                    flash(f"✔ Réentraînement lancé pour le plat corrigé : {correction}", "info")
+                except Exception as e:
+                    flash("❌ Erreur lors du réentraînement automatique.", "danger")
+                    print(f"[ERREUR] train_from_scratch : {e}")
+
     # Commit final
     db.session.commit()
 
@@ -504,96 +440,6 @@ def feedback(upload_id):
 
     flash("Merci pour votre retour !", "success")
     return redirect(url_for('dashboard'))
-
-@app.route('/correct/<int:upload_id>', methods=['POST'])
-def correct_label(upload_id):
-    if 'user_id' not in session:
-        flash("Vous devez être connecté.", 'warning')
-        return redirect(url_for('signin'))
-
-    upload = Upload.query.get_or_404(upload_id)
-    if upload.user_id != session['user_id']:
-        flash("Action non autorisée.", 'danger')
-        return redirect(url_for('dashboard'))
-
-    corrected = request.form.get('new_dish', '').strip().lower().replace(" ", "_")
-    if not corrected:
-        flash("Nom du plat invalide.", 'warning')
-        return redirect(url_for('dashboard'))
-
-    # Met à jour la DB
-    upload.dish_name = corrected
-    upload.rating = None
-    db.session.commit()
-
-    # Copie image dans retraining_dataset/<corrected>/
-    save_corrected_image(upload.filename, corrected)
-
-    # Vérifie s’il y a assez d’exemples pour relancer le training
-    corrected_dir = os.path.join("retraining_dataset", corrected)
-    total_images = sum([len(files) for _, _, files in os.walk("retraining_dataset")])
-    if total_images >= 10:
-        import subprocess
-        try:
-            subprocess.run(["python", "train_from_scratch.py"], check=True)
-            flash("✔ Modèle réentraîné avec toutes les corrections.", "info")
-        except Exception as e:
-            flash("❌ Échec du réentraînement automatique.", "danger")
-            print(f"[ERREUR] train_from_scratch : {e}")
-
-    flash("Correction enregistrée ✅", "success")
-    return redirect(url_for('dashboard'))
-
-@app.route('/correction/<int:upload_id>', methods=['POST'])
-def correction(upload_id):
-    if 'user_id' not in session:
-        flash("Accès non autorisé.", 'danger')
-        return redirect(url_for('signin'))
-
-    upload = Upload.query.get_or_404(upload_id)
-    if upload.user_id != session['user_id']:
-        flash("Action non autorisée.", 'danger')
-        return redirect(url_for('dashboard'))
-
-    new_dish = request.form.get("corrected_name", "").strip().lower().replace(" ", "_")
-    if not new_dish:
-        flash("Nom du plat invalide.", 'warning')
-        return redirect(url_for('dashboard'))
-
-    # Mise à jour du nom du plat
-    upload.dish_name = new_dish.title()
-    upload.rating = None
-    db.session.commit()
-    flash("Nom du plat mis à jour.", 'success')
-
-    # Copier l'image dans retraining_dataset/<new_dish>/
-    save_corrected_image(upload.filename, new_dish)
-
-    # Déclenche le réentraînement si assez d'exemples corrigés
-    corrected_dir = os.path.join("retraining_dataset", new_dish)
-    if os.path.exists(corrected_dir) and len(os.listdir(corrected_dir)) >= 10:
-        import subprocess
-        try:
-            subprocess.run(["python", "retrain.py"], check=True)
-            flash("✔ Réentraînement déclenché avec les corrections utilisateurs.", "info")
-        except Exception as e:
-            flash("❌ Échec du réentraînement automatique.", "danger")
-            print(f"[ERREUR] Réentraînement : {e}")
-
-    return redirect(url_for('dashboard'))
-
-
-def save_corrected_image(filename, label):
-    print(f"[DEBUG] Entrée dans save_corrected_image : filename={filename}, label={label}")
-    src = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    dest_dir = os.path.join("retraining_dataset", label)
-    os.makedirs(dest_dir, exist_ok=True)
-    dest = os.path.join(dest_dir, filename)
-    try:
-        shutil.copy(src, dest)
-        print(f"[DEBUG] Image copiée dans : {dest}")
-    except Exception as e:
-        print(f"[ERREUR] Copie de l'image échouée : {e}")
 
 #boutons barres supérieure
 @app.route('/contact')
