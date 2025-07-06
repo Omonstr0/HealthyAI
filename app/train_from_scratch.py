@@ -66,10 +66,13 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
+    with open(STATUS_FILE, "w") as f:
+        json.dump({"epoch": 0, "total": EPOCHS, "done": False}, f)
+
     for epoch in range(EPOCHS):
         model.train()
         with open(STATUS_FILE, "w") as f:
-            json.dump({"epoch": epoch + 1, "total": EPOCHS}, f)
+            json.dump({"epoch": epoch + 1, "total": EPOCHS, "done": False}, f)
 
         for imgs, labels in tqdm(train_loader, desc=f"[Epoch {epoch+1}/{EPOCHS}]"):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)

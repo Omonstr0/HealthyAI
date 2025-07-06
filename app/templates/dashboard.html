@@ -139,7 +139,8 @@
           <label for="trainingProgressBar" class="form-label">Progression de l'entraînement</label>
           <div class="progress">
             <div id="trainingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
-                role="progressbar" style="width: 0%">0%</div>
+                role="progressbar" style="width: {{ percent }}%">
+              {{ percent }}%</div>
           </div>
         </div>
       {% endif %}
