@@ -134,13 +134,15 @@
         <button type="submit" class="btn-upload">Téléverser la photo</button>
       </form>
 
-      <div id="training-progress-container" class="mt-3 d-none">
-        <label for="trainingProgressBar" class="form-label">Progression de l'entraînement</label>
-        <div class="progress">
-          <div id="trainingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
-              role="progressbar" style="width: 0%">0%</div>
+      {% if show_progress %}
+        <div id="training-progress-container" class="mt-3">
+          <label for="trainingProgressBar" class="form-label">Progression de l'entraînement</label>
+          <div class="progress">
+            <div id="trainingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar" style="width: 0%">0%</div>
+          </div>
         </div>
-      </div>
+      {% endif %}
 
       {% if image_url %}
         <img src="{{ image_url }}" class="preview-img" alt="Image uploadée">

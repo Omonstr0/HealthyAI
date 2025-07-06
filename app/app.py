@@ -180,12 +180,28 @@ def dashboard():
         flash('Veuillez vous connecter pour accéder au tableau de bord.', 'danger')
         return redirect(url_for('signin'))
     uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
+
+        # Lecture de training_status.json
+    training_status = {"done": True}
+    try:
+        with open("training_status.json", "r") as f:
+            training_status = json.load(f)
+    except Exception:
+        pass  # ignore s'il n'existe pas encore
+
+    show_progress = not training_status.get("done", True)
+    percent = int(100 * training_status.get("epoch", 0) / training_status.get("total", 1)) if not training_status.get("done", True) else 100
+    status_label = "En cours" if not training_status.get("done", True) else "Terminé"
+
     return render_template('dashboard.html',
                            uploads=uploads,
                            nutrition=session.get('last_nutrition'),
                            image_url=session.get('last_image'),
                            detected_dish=session.get('last_dish'),
-                           corrected_id=session.pop('corrected_id', None))
+                           corrected_id=session.pop('corrected_id', None),
+                           show_progress=show_progress,
+                           percent=percent,
+                           status_label=status_label)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -216,7 +232,7 @@ def upload():
         # ✅ Évite la SameFileError en local
         if os.path.abspath(filepath) != os.path.abspath(dst_path):
             shutil.copy(filepath, dst_path)
-            
+
         # ✅ Vérification de compatibilité
         try:
             with Image.open(filepath) as img:
