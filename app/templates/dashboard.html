@@ -134,16 +134,13 @@
         <button type="submit" class="btn-upload">Téléverser la photo</button>
       </form>
 
-      {% if show_progress %}
-        <div id="training-progress-container" class="mt-3">
+        <div id="training-progress-container" class="mt-3 d-none">
           <label for="trainingProgressBar" class="form-label">Progression de l'entraînement</label>
           <div class="progress">
             <div id="trainingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
-                role="progressbar" style="width: {{ percent }}%">
-              {{ percent }}%</div>
+                role="progressbar" style="width: 0%">0%</div>
           </div>
         </div>
-      {% endif %}
 
       {% if image_url %}
         <img src="{{ image_url }}" class="preview-img" alt="Image uploadée">
@@ -267,7 +264,6 @@
             .catch(error => console.error("Erreur progression :", error));
     }
 
-    // 👇 Appel initial + mise à jour toutes les 5 secondes
     updateProgress();
     setInterval(updateProgress, 5000);
 
