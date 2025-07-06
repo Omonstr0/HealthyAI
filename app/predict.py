@@ -16,7 +16,7 @@ num_classes = len(class_labels)
 
 # Prétraitement des images
 transform = transforms.Compose([
-    transforms.Resize((128, 128)),
+    transforms.Resize((64, 64)),
     transforms.ToTensor(),
     transforms.Normalize([0.5]*3, [0.5]*3)
 ])
