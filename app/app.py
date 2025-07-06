@@ -201,7 +201,7 @@ def dashboard():
                            corrected_id=session.pop('corrected_id', None),
                            show_progress=show_progress,
                            percent=percent,
-                           status_label=status_label)
+                           )
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -438,7 +438,7 @@ def feedback(upload_id):
             if total_images >= 10:
                 import subprocess
                 try:
-                    subprocess.run(["python", "train_from_scratch.py"], check=True)
+                    subprocess.Popen(["python", "train_from_scratch.py"])
                     flash(f"✔ Réentraînement lancé pour le plat corrigé : {correction}", "info")
                 except Exception as e:
                     flash("❌ Erreur lors du réentraînement automatique.", "danger")
