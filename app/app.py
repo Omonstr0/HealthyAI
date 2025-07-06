@@ -22,10 +22,17 @@ app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'F
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+if not app.config["SQLALCHEMY_DATABASE_URI"]:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = '/mnt/uploads'
+# Détection de l’environnement (Render ou local)
+if os.environ.get("RENDER") == "true":
+    UPLOAD_FOLDER = '/mnt/uploads'
+else:
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -204,8 +211,12 @@ def upload():
 
         static_upload_folder = os.path.join(app.root_path, 'static', 'uploads')
         os.makedirs(static_upload_folder, exist_ok=True)
-        shutil.copy(filepath, os.path.join(static_upload_folder, filename))
+        dst_path = os.path.join(static_upload_folder, filename)
 
+        # ✅ Évite la SameFileError en local
+        if os.path.abspath(filepath) != os.path.abspath(dst_path):
+            shutil.copy(filepath, dst_path)
+            
         # ✅ Vérification de compatibilité
         try:
             with Image.open(filepath) as img:

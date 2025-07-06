@@ -5,9 +5,11 @@ from PIL import Image
 from train_from_scratch import DeepFoodCNN
 
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Chargement des classes
-with open("classes_food101.txt", "r") as f:
+CLASS_FILE = os.path.join(BASE_DIR, "classes_food101.txt")
+with open(CLASS_FILE, "r") as f:
     class_labels = [line.strip() for line in f.readlines()]
 
 num_classes = len(class_labels)
@@ -20,7 +22,6 @@ transform = transforms.Compose([
 ])
 
 # Résolution dynamique du chemin vers le modèle
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "model_latest.pth")
 
 # Chargement du modèle
