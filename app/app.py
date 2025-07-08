@@ -7,12 +7,13 @@ from predict import model, transform, class_labels, DEVICE
 import os
 import secrets
 import uuid
-import requests
+import subprocess
 import shutil
 import csv
 import datetime
 import torch
 import pandas as pd
+import json
 
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -29,9 +30,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Détection de l’environnement (Render ou local)
 if os.environ.get("RENDER") == "true":
     UPLOAD_FOLDER = '/mnt/uploads'
+    FEEDBACK_CSV_PATH = "feedabck_csv/feedback_log.csv"
 else:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+    FEEDBACK_CSV_PATH = os.path.join(app.root_path, "feedback_csv", "feedback_log.csv")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(os.path.dirname(FEEDBACK_CSV_PATH), exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -285,7 +289,7 @@ def upload():
         uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
 
         # ✅ Pré-écriture du log feedback (sans rating pour l’instant)
-        log_path = "feedback_csv/feedback_log.csv"
+        log_path = FEEDBACK_CSV_PATH
         if not os.path.exists(log_path):
             with open(log_path, "w", newline="") as f:
                 writer = csv.writer(f)
@@ -435,14 +439,32 @@ def feedback(upload_id):
                 f for f in os.listdir(img_dir)
                 if os.path.isfile(os.path.join(img_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png'))
             ])
-            if total_images >= 10:
-                import subprocess
+            current_threshold = (total_images // 10) * 10  # Arrondi à la dizaine inférieure
+            json_path = os.path.join("app", "last_trained.json")
+
+            if not os.path.exists(json_path):
+                last_trained = {}
+            else:
+                with open(json_path, "r") as f:
+                    try:
+                        last_trained = json.load(f)
+                    except json.JSONDecodeError:
+                        last_trained = {}
+
+            last_value = last_trained.get(correction, 0)
+
+            if current_threshold >= 10 and current_threshold > last_value:
                 try:
                     subprocess.Popen(["python", "train_from_scratch.py"])
+                    last_trained[correction] = current_threshold
+                    with open(json_path, "w") as f:
+                        json.dump(last_trained, f, indent=2)
                     flash(f"✔ Réentraînement lancé pour le plat corrigé : {correction}", "info")
                 except Exception as e:
                     flash("❌ Erreur lors du réentraînement automatique.", "danger")
                     print(f"[ERREUR] train_from_scratch : {e}")
+        else:
+            print(f"[🔁] Aucun re-entrainement nécessaire : seuil atteint {current_threshold}, dernier {last_value}")
 
     # Commit final
     db.session.commit()
@@ -458,10 +480,9 @@ def feedback(upload_id):
         print(f"[ERREUR] Copie vers feedback_data échouée : {e}")
 
     # Log CSV
-    log_file = "feedback_csv/feedback_log.csv"
     predicted_dish = upload.dish_name or "Inconnu"
     confidence = session.get("last_confidence", -1)
-    with open(log_file, "a", newline="") as f:
+    with open(FEEDBACK_CSV_PATH, "a", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([upload.filename, predicted_dish, confidence, rating])
 
