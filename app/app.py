@@ -2,8 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from PIL import Image, UnidentifiedImageError
 from predict import model, transform, class_labels, DEVICE
+from datetime import datetime
 import os
 import secrets
 import uuid
@@ -57,11 +59,25 @@ if not os.path.exists(DATASET_DIR) or len(os.listdir(DATASET_DIR)) < 10:
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+# Injection globale de la date/heure dans tous les templates
+@app.context_processor
+def inject_now():
+    return {'now': datetime.datetime.utcnow()}
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(256), nullable=False)
     reset_token = db.Column(db.String(256), nullable=True)
+
+class UserProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_email = db.Column(db.String(150), db.ForeignKey('user.email'), nullable=False)
+    age = db.Column(db.Integer)
+    height = db.Column(db.Float)
+    weight = db.Column(db.Float)
+    sex = db.Column(db.String(10))
+    activity = db.Column(db.Float)
 
 class Upload(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -301,9 +317,6 @@ def upload():
                 filename, label_formatted, "", "", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), round(confidence, 4), ""
             ])
 
-        flash('Image bien reçue !', 'success')
-        flash(f"Plat détecté : {label_formatted}", "info")
-
         session['last_image'] = url_for('static', filename=f'uploads/{filename}')
 
         return render_template('dashboard.html',
@@ -338,6 +351,81 @@ def analyse(upload_id):
         db.session.commit()
 
     return redirect(url_for('dashboard'))
+
+
+@app.route("/calorie", methods=["GET", "POST"])
+def calorie():
+    if 'user_id' not in session:
+        flash("Veuillez vous connecter pour accéder à cette page.", 'warning')
+        return redirect(url_for('signin'))
+
+    calories = None
+    protein_low = None
+    protein_high = None
+    edit_mode = request.args.get("edit") == "1"
+
+    user_email = session.get("user_email")
+    profile = UserProfile.query.filter_by(user_email=user_email).first()
+
+    if request.method == "POST":
+        try:
+            if edit_mode:
+                # Si le formulaire d’édition est activé
+                age = int(request.form.get("age"))
+                height = float(request.form.get("height"))
+                weight = float(request.form.get("weight"))
+                sex = request.form.get("sex")
+                activity = float(request.form.get("activity"))
+
+                if profile:
+                    profile.age = age
+                    profile.height = height
+                    profile.weight = weight
+                    profile.sex = sex
+                    profile.activity = activity
+                else:
+                    profile = UserProfile(
+                        user_email=user_email,
+                        age=age,
+                        height=height,
+                        weight=weight,
+                        sex=sex,
+                        activity=activity
+                    )
+                    db.session.add(profile)
+
+                db.session.commit()
+                flash("Informations enregistrées avec succès ✅", "success")
+                return redirect(url_for('calorie'))
+
+            elif profile:
+                # Pas en mode édition : utiliser les données existantes
+                age = profile.age
+                height = profile.height
+                weight = profile.weight
+                sex = profile.sex
+                activity = profile.activity
+
+            else:
+                flash("Aucune donnée disponible. Veuillez remplir le formulaire d'abord.", "danger")
+                return redirect(url_for('calorie'))
+
+            # Calcul nutritionnel dans les deux cas
+            bmr = 10 * weight + 6.25 * height - 5 * age + (5 if sex == "male" else -161)
+            calories = round(bmr * activity)
+            protein_low = round(weight * 0.8)
+            protein_high = round(weight * 1.0)
+
+        except Exception as e:
+            print("Erreur :", e)
+            flash("Erreur dans les données envoyées. Veuillez réessayer.", "danger")
+
+    return render_template("calorie.html",
+                           profile=profile,
+                           calories=calories,
+                           protein_low=protein_low,
+                           protein_high=protein_high,
+                           edit_mode=edit_mode)
 
 
 @app.route('/delete/<int:upload_id>', methods=['POST'])
@@ -497,13 +585,80 @@ def contact():
 @app.route('/info')
 def info():
     return render_template('info.html')
-#bouton danalyse
+
 @app.route('/analytics')
 def analytics():
     if 'user_id' not in session:
         flash("Veuillez vous connecter pour accéder aux statistiques.", 'warning')
         return redirect(url_for('signin'))
-    return render_template('analytics.html')
+
+    user_id = session.get('user_id')
+    user_email = session.get('user_email')
+    plats_csv_path = os.path.join(app.root_path, 'plats.csv')
+
+    # Initialisation des totaux
+    total_kcal = 0
+    total_proteines = 0
+    total_glucides = 0
+    total_lipides = 0
+
+    # Pour graphique 7 jours
+    day_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    kcal_per_day = {day: 0 for day in day_labels}
+
+    # Calories de référence depuis UserProfile
+    calories_needed = None
+    calories_percentage = None
+    profile = UserProfile.query.filter_by(user_email=user_email).first()
+
+    if profile:
+        try:
+            bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + (5 if profile.sex == 'male' else -161)
+            calories_needed = round(bmr * profile.activity)
+        except Exception as e:
+            print("Erreur calcul BMR :", e)
+
+    if os.path.isfile(plats_csv_path):
+        df = pd.read_csv(plats_csv_path)
+
+        # Normalisation des noms
+        if 'name' in df.columns:
+            df['name'] = df['name'].str.lower().str.strip()
+        else:
+            flash("⚠️ Le fichier plats.csv ne contient pas la colonne 'name'.", 'danger')
+            return redirect(url_for('dashboard'))
+
+        uploads = Upload.query.filter_by(user_id=user_id).all()
+
+        for u in uploads:
+            if not u.dish_name:
+                continue
+            dish_normalized = u.dish_name.lower().strip()
+            match = df[df['name'] == dish_normalized]
+            if not match.empty:
+                plat = match.iloc[0]
+                total_kcal += float(plat.get('kcal', 0))
+                total_proteines += float(plat.get('protein_g', 0))
+                total_glucides += float(plat.get('carbs_g', 0))
+                total_lipides += float(plat.get('fat_g', 0))
+
+                day_str = u.timestamp.strftime('%a')  # Ex: "Mon"
+                if day_str in kcal_per_day:
+                    kcal_per_day[day_str] += float(plat.get('kcal', 0))
+
+    # Calcul du pourcentage de consommation calorique
+    if calories_needed:
+        calories_percentage = round((total_kcal / calories_needed) * 100)
+
+    return render_template('analytics.html',
+        calories=int(round(total_kcal)),
+        proteines=int(round(total_proteines)),
+        glucides=int(round(total_glucides)),
+        lipides=int(round(total_lipides)),
+        calories_by_day=[int(k) for k in [kcal_per_day[day] for day in day_labels]],
+        calories_needed=calories_needed,
+        calories_percentage=calories_percentage
+    )
 
 
 @app.route('/training_status')
