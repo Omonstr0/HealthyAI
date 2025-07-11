@@ -623,7 +623,7 @@ def analytics():
 
         # Normalisation des noms
         if 'name' in df.columns:
-            df['name'] = df['name'].str.lower().str.strip()
+            df['name_fr'] = df['name_fr'].str.lower().str.strip()
         else:
             flash("⚠️ Le fichier plats.csv ne contient pas la colonne 'name'.", 'danger')
             return redirect(url_for('dashboard'))
@@ -634,7 +634,7 @@ def analytics():
             if not u.dish_name:
                 continue
             dish_normalized = u.dish_name.lower().strip()
-            match = df[df['name'] == dish_normalized]
+            match = df[df['name_fr'] == dish_normalized]
             if not match.empty:
                 plat = match.iloc[0]
                 total_kcal += float(plat.get('kcal', 0))
