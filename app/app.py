@@ -494,7 +494,8 @@ def feedback(upload_id):
                 print(f"[ERREUR] Copie dans dataset/images/ échouée : {e}")
 
             # 🔽 Ajouter le plat à classes_food101.txt s’il est nouveau
-            with open("classes_food101.txt", "r") as f:
+            file_path = os.path.join(app.root_path, 'classes_food101.txt')
+            with open(file_path, "r") as f:
                 classes = [line.strip() for line in f.readlines()]
             if correction not in classes:
                 with open("classes_food101.txt", "a") as f:
