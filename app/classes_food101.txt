@@ -26,6 +26,7 @@ clam_chowder
 club_sandwich
 crab_cakes
 creme_brulee
+croissant
 croque_madame
 cup_cakes
 deviled_eggs

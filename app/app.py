@@ -44,7 +44,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # ========== 🧠 Auto-download du dataset si vide ==========
 DATASET_DIR = "dataset/images/"
-ZIP_URL = "https://huggingface.co/datasets/Omonstr0/healthyai-dataset/resolve/main/dataset.zip"
+ZIP_URL = "https://huggingface.co/datasets/Omonstr0/dataset-healthyai/resolve/main/dataset.zip"
 ZIP_PATH = "dataset.zip"
 
 if not os.path.exists(DATASET_DIR) or len(os.listdir(DATASET_DIR)) < 10:
@@ -52,7 +52,7 @@ if not os.path.exists(DATASET_DIR) or len(os.listdir(DATASET_DIR)) < 10:
     print("[INFO] Téléchargement du dataset...")
     urllib.request.urlretrieve(ZIP_URL, ZIP_PATH)
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
-        zip_ref.extractall("dataset/")
+        zip_ref.extractall("app/")
     print("[INFO] Dataset prêt.")
 
 
@@ -493,12 +493,12 @@ def feedback(upload_id):
             except Exception as e:
                 print(f"[ERREUR] Copie dans dataset/images/ échouée : {e}")
 
-            # 🔽 Ajouter le plat à classes_food101.txt s’il est nouveau
-            file_path = os.path.join(app.root_path, 'classes_food101.txt')
+            # 🔽 Ajouter le plat à classes_food5.txt s’il est nouveau
+            file_path = os.path.join(app.root_path, 'classes_food5.txt')
             with open(file_path, "r") as f:
                 classes = [line.strip() for line in f.readlines()]
             if correction not in classes:
-                with open("classes_food101.txt", "a") as f:
+                with open("classes_food5.txt", "a") as f:
                     f.write(f"{correction}\n")
 
             # 🔽 Ajouter une ligne dans plats.csv s’il est nouveau
