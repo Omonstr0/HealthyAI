@@ -18,7 +18,7 @@
       <button type="submit" class="btn btn-success">Téléverser la photo</button>
     </div>
   </form>
-  
+
   <div id="training-progress-container" class="mt-3 d-none">
     <label for="trainingProgressBar" class="form-label">Progression de l'entraînement</label>
     <div class="progress">
@@ -135,18 +135,20 @@
         const container = document.getElementById("training-progress-container");
         const bar = document.getElementById("trainingProgressBar");
 
-        if (data.total && data.epoch) {
-          container.classList.remove("d-none");
-          const progress = Math.round((data.epoch / data.total) * 100);
-          bar.style.width = `${progress}%`;
-          bar.innerText = `${progress}%`;
-        }
+      if (data.total && data.epoch && !data.done) {
+        container.classList.remove("d-none");
+        const progress = Math.round((data.epoch / data.total) * 100);
+        bar.style.width = `${progress}%`;
+        bar.innerText = `${progress}%`;
+      } else {
+        container.classList.add("d-none");
+      }
 
-        if (data.done) {
-          bar.classList.remove("progress-bar-animated");
-          bar.classList.add("bg-success");
-          bar.innerText = "✅ Terminé";
-        }
+      if (data.done) {
+        bar.classList.remove("progress-bar-animated");
+        bar.classList.add("bg-success");
+        bar.innerText = "✅ Terminé";
+      }
       })
       .catch(error => console.error("Erreur progression :", error));
   }
