@@ -209,11 +209,10 @@ def dashboard():
     if os.path.exists(status_path):
         try:
             with open(status_path, "r") as f:
-                training_status = json.load(f)
-
-                # Si "done" est True et aucun entraînement en attente, on ne montre rien
-                if training_status.get("done", True):
-                    training_status = None
+                status_data = json.load(f)
+                # On garde le status uniquement si l'entraînement est en cours
+                if not status_data.get("done", True):
+                    training_status = status_data
         except Exception:
             training_status = None
 
@@ -225,7 +224,7 @@ def dashboard():
     if training_status:
         show_progress = True
         percent = int(100 * training_status.get("epoch", 0) / training_status.get("total", 1))
-        status_label = "En cours" if not training_status.get("done", True) else "Terminé"
+        status_label = "En cours"
 
     return render_template(
         'dashboard.html',
