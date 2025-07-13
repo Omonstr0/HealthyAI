@@ -52,7 +52,7 @@ if not os.path.exists(DATASET_DIR) or len(os.listdir(DATASET_DIR)) < 10:
     print("[INFO] Téléchargement du dataset...")
     urllib.request.urlretrieve(ZIP_URL, ZIP_PATH)
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
-        zip_ref.extractall("app/")
+        zip_ref.extractall(".")
     print("[INFO] Dataset prêt.")
 
 

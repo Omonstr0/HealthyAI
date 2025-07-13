@@ -2,7 +2,7 @@ import os
 import torch
 from torchvision import transforms
 from PIL import Image
-from train_from_scratch import SmallCNN  # Import du bon modèle
+from train_from_scratch import SmallCNN
 
 # ==== CONFIGURATION ====
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
