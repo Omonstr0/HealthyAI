@@ -560,7 +560,7 @@ def feedback(upload_id):
 
             if current_threshold >= 10 and current_threshold > last_value:
                 try:
-                    subprocess.Popen(["python", "train_from_scratch.py"])
+                    subprocess.Popen(["python", "app/train_from_scratch.py"])
                     last_trained[correction] = current_threshold
                     with open(json_path, "w") as f:
                         json.dump(last_trained, f, indent=2)
