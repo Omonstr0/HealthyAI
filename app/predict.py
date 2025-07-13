@@ -17,7 +17,7 @@ NUM_CLASSES = len(class_labels)
 
 # ==== PRETRAITEMENT ====
 transform = transforms.Compose([
-    transforms.Resize((64, 64)),  # cohérent avec l'entrée du modèle
+    transforms.Resize((128, 128)),  # cohérent avec l'entrée du modèle
     transforms.ToTensor(),
     transforms.Normalize([0.5]*3, [0.5]*3)
 ])
