@@ -475,7 +475,6 @@ def feedback(upload_id):
 
     upload = Upload.query.get_or_404(upload_id)
 
-    # Vérifie que l'utilisateur est bien le propriétaire
     if upload.user_id != session['user_id']:
         flash("Action non autorisée.", 'danger')
         return redirect(url_for('dashboard'))
@@ -490,36 +489,41 @@ def feedback(upload_id):
 
     upload.rating = rating
 
-    # 🔽 Ajout : gestion du champ de correction
+    # === CAS : Feedback négatif → Correction du plat
     if rating == 0:
         correction = request.form.get("correction", "").strip().lower().replace(" ", "_")
         if correction:
-            upload.dish_name = correction  # ➤ Mise à jour du nom du plat en base
+            upload.dish_name = correction
 
-            # 🔽 Optionnel : créer le dossier si non existant
+            # === Vérifie si le plat est déjà connu
+            classes_path = os.path.join(app.root_path, 'classes_food5.txt')
+            with open(classes_path, "r") as f:
+                known_classes = [line.strip() for line in f.readlines()]
+
+            # === Copie l'image dans le bon dossier
             img_dir = os.path.join("dataset", "images", correction)
             os.makedirs(img_dir, exist_ok=True)
 
-            # 🔽 Copier l'image uploadée dans le bon dossier
             src = os.path.join(app.config["UPLOAD_FOLDER"], upload.filename)
             dst = os.path.join(img_dir, upload.filename)
             try:
                 shutil.copy(src, dst)
             except Exception as e:
-                print(f"[ERREUR] Copie dans dataset/images/ échouée : {e}")
+                print(f"[ERREUR] Copie image plat corrigé : {e}")
 
-            # 🔽 Ajouter le plat à classes_food5.txt s’il est nouveau
-            file_path = os.path.join(app.root_path, 'classes_food5.txt')
-            with open(file_path, "r") as f:
-                classes = [line.strip() for line in f.readlines()]
-            if correction not in classes:
-                with open("classes_food5.txt", "a") as f:
-                    f.write(f"{correction}\n")
+            if correction in known_classes:
+                # Plat déjà connu → on arrête ici
+                db.session.commit()
+                flash("Merci pour votre retour !", "success")
+                return redirect(url_for('dashboard'))
 
-            # 🔽 Ajouter une ligne dans plats.csv s’il est nouveau
+            # === Ajoute à classes_food5.txt
+            with open(classes_path, "a") as f:
+                f.write(f"{correction}\n")
+
+            # === Ajoute dans plats.csv si nouveau
             plats_file = os.path.join(app.root_path, "plats.csv")
             correction_exists = False
-
             if os.path.exists(plats_file):
                 with open(plats_file, newline='') as f:
                     reader = csv.reader(f)
@@ -528,22 +532,19 @@ def feedback(upload_id):
                             correction_exists = True
                             break
 
-            # Si le plat n'existe pas encore, on l’ajoute
             if not correction_exists:
                 with open(plats_file, "a", newline="") as fw:
                     writer = csv.writer(fw)
-                    # Si le fichier est vide, écrire l'en-tête
                     if os.path.getsize(plats_file) == 0:
                         writer.writerow(["name", "name_fr", "kcal", "protein_g", "carbs_g", "fat_g"])
                     writer.writerow([correction, correction.replace("_", " ").title(), 0, 0, 0, 0])
 
-
-            # 🧠 Vérifie s’il y a au moins 10 images dans le dossier → lancer training
+            # === Lancement du réentraînement si seuil atteint
             total_images = len([
                 f for f in os.listdir(img_dir)
                 if os.path.isfile(os.path.join(img_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png'))
             ])
-            current_threshold = (total_images // 10) * 10  # Arrondi à la dizaine inférieure
+            current_threshold = (total_images // 10) * 10
             json_path = os.path.join("app", "last_trained.json")
 
             if not os.path.exists(json_path):
@@ -568,7 +569,9 @@ def feedback(upload_id):
                     flash("❌ Erreur lors du réentraînement automatique.", "danger")
                     print(f"[ERREUR] train_from_scratch : {e}")
         else:
-            print(f"[🔁] Aucun re-entrainement nécessaire : seuil atteint {current_threshold}, dernier {last_value}")
+            flash("Merci pour votre retour.", "success")
+
+    # === CAS : Feedback positif
     elif rating == 1:
         if upload.dish_name:
             dish_dir = os.path.join("dataset", "images", upload.dish_name.strip().lower().replace(" ", "_"))
@@ -581,10 +584,10 @@ def feedback(upload_id):
             except Exception as e:
                 print(f"[ERREUR] Copie image feedback 👍 échouée : {e}")
 
-    # Commit final
+    # === Enregistrement final
     db.session.commit()
 
-    # Enregistrer dans feedback_data/
+    # === Backup dans feedback_data
     feedback_dir = os.path.join("feedback_data", str(rating))
     os.makedirs(feedback_dir, exist_ok=True)
     src_path = os.path.join(app.config['UPLOAD_FOLDER'], upload.filename)
@@ -594,7 +597,7 @@ def feedback(upload_id):
     except Exception as e:
         print(f"[ERREUR] Copie vers feedback_data échouée : {e}")
 
-    # Log CSV
+    # === Log CSV
     predicted_dish = upload.dish_name or "Inconnu"
     confidence = session.get("last_confidence", -1)
     with open(FEEDBACK_CSV_PATH, "a", newline="") as f:
