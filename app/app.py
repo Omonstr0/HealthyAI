@@ -199,29 +199,45 @@ def dashboard():
     if 'user_id' not in session:
         flash('Veuillez vous connecter pour accéder au tableau de bord.', 'danger')
         return redirect(url_for('signin'))
+
     uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
 
-        # Lecture de training_status.json
-    training_status = {"done": True}
-    try:
-        with open("training_status.json", "r") as f:
-            training_status = json.load(f)
-    except Exception:
-        pass  # ignore s'il n'existe pas encore
+    # === Lecture du fichier training_status.json ===
+    training_status = None
+    status_path = os.path.join(app.root_path, "training_status.json")
 
-    show_progress = not training_status.get("done", True)
-    percent = int(100 * training_status.get("epoch", 0) / training_status.get("total", 1)) if not training_status.get("done", True) else 100
-    status_label = "En cours" if not training_status.get("done", True) else "Terminé"
+    if os.path.exists(status_path):
+        try:
+            with open(status_path, "r") as f:
+                training_status = json.load(f)
 
-    return render_template('dashboard.html',
-                           uploads=uploads,
-                           nutrition=session.get('last_nutrition'),
-                           image_url=session.get('last_image'),
-                           detected_dish=session.get('last_dish'),
-                           corrected_id=session.pop('corrected_id', None),
-                           show_progress=show_progress,
-                           percent=percent,
-                           )
+                # Si "done" est True et aucun entraînement en attente, on ne montre rien
+                if training_status.get("done", True):
+                    training_status = None
+        except Exception:
+            training_status = None
+
+    # === Variables d'affichage
+    show_progress = False
+    percent = 0
+    status_label = ""
+
+    if training_status:
+        show_progress = True
+        percent = int(100 * training_status.get("epoch", 0) / training_status.get("total", 1))
+        status_label = "En cours" if not training_status.get("done", True) else "Terminé"
+
+    return render_template(
+        'dashboard.html',
+        uploads=uploads,
+        nutrition=session.get('last_nutrition'),
+        image_url=session.get('last_image'),
+        detected_dish=session.get('last_dish'),
+        corrected_id=session.pop('corrected_id', None),
+        show_progress=show_progress,
+        percent=percent,
+        status_label=status_label
+    )
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -482,7 +498,7 @@ def feedback(upload_id):
             upload.dish_name = correction  # ➤ Mise à jour du nom du plat en base
 
             # 🔽 Optionnel : créer le dossier si non existant
-            img_dir = os.path.join("dataset", "dataset", "images", correction)
+            img_dir = os.path.join("dataset", "images", correction)
             os.makedirs(img_dir, exist_ok=True)
 
             # 🔽 Copier l'image uploadée dans le bon dossier
@@ -554,6 +570,17 @@ def feedback(upload_id):
                     print(f"[ERREUR] train_from_scratch : {e}")
         else:
             print(f"[🔁] Aucun re-entrainement nécessaire : seuil atteint {current_threshold}, dernier {last_value}")
+    elif rating == 1:
+        if upload.dish_name:
+            dish_dir = os.path.join("dataset", "images", upload.dish_name.strip().lower().replace(" ", "_"))
+            os.makedirs(dish_dir, exist_ok=True)
+
+            src = os.path.join(app.config["UPLOAD_FOLDER"], upload.filename)
+            dst = os.path.join(dish_dir, upload.filename)
+            try:
+                shutil.copy(src, dst)
+            except Exception as e:
+                print(f"[ERREUR] Copie image feedback 👍 échouée : {e}")
 
     # Commit final
     db.session.commit()
