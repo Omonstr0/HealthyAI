@@ -534,7 +534,7 @@ def feedback(upload_id):
                     writer.writerow([correction, correction.replace("_", " ").title(), 0, 0, 0, 0])
 
             # === Lancement du réentraînement toutes les 10 corrections
-            json_path = os.path.join("app", "last_trained.json")
+            json_path = os.path.join(app.root_path, "last_trained.json")
             if not os.path.exists(json_path):
                 train_data = {"total_corrections": 0}
             else:
