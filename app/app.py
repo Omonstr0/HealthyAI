@@ -500,7 +500,7 @@ def feedback(upload_id):
             with open(classes_path, "r") as f:
                 known_classes = [line.strip() for line in f.readlines()]
 
-            # === Copie l'image dans le bon dossier
+            # === Copie l'image dans le dossier du plat
             img_dir = os.path.join("dataset", "images", correction)
             os.makedirs(img_dir, exist_ok=True)
 
@@ -511,17 +511,12 @@ def feedback(upload_id):
             except Exception as e:
                 print(f"[ERREUR] Copie image plat corrigé : {e}")
 
-            if correction in known_classes:
-                # Plat déjà connu → on arrête ici
-                db.session.commit()
-                flash("Merci pour votre retour !", "success")
-                return redirect(url_for('dashboard'))
+            # === Ajout à classes_food5.txt si nouveau
+            if correction not in known_classes:
+                with open(classes_path, "a") as f:
+                    f.write(f"{correction}\n")
 
-            # === Ajoute à classes_food5.txt
-            with open(classes_path, "a") as f:
-                f.write(f"{correction}\n")
-
-            # === Ajoute dans plats.csv si nouveau
+            # === Ajout dans plats.csv si nouveau
             plats_file = os.path.join(app.root_path, "plats.csv")
             correction_exists = False
             if os.path.exists(plats_file):
@@ -531,7 +526,6 @@ def feedback(upload_id):
                         if row and row[0] == correction:
                             correction_exists = True
                             break
-
             if not correction_exists:
                 with open(plats_file, "a", newline="") as fw:
                     writer = csv.writer(fw)
@@ -539,37 +533,33 @@ def feedback(upload_id):
                         writer.writerow(["name", "name_fr", "kcal", "protein_g", "carbs_g", "fat_g"])
                     writer.writerow([correction, correction.replace("_", " ").title(), 0, 0, 0, 0])
 
-            # === Lancement du réentraînement si seuil atteint
-            total_images = len([
-                f for f in os.listdir(img_dir)
-                if os.path.isfile(os.path.join(img_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png'))
-            ])
-            current_threshold = (total_images // 10) * 10
+            # === Lancement du réentraînement toutes les 10 corrections
             json_path = os.path.join("app", "last_trained.json")
-
             if not os.path.exists(json_path):
-                last_trained = {}
+                train_data = {"total_corrections": 0}
             else:
                 with open(json_path, "r") as f:
                     try:
-                        last_trained = json.load(f)
+                        train_data = json.load(f)
                     except json.JSONDecodeError:
-                        last_trained = {}
+                        train_data = {"total_corrections": 0}
 
-            last_value = last_trained.get(correction, 0)
+            # On incrémente le compteur
+            train_data["total_corrections"] = train_data.get("total_corrections", 0) + 1
+            corrections = train_data["total_corrections"]
 
-            if current_threshold >= 10 and current_threshold > last_value:
+            # On lance l'entraînement tous les 10 feedbacks négatifs
+            if corrections % 10 == 0:
                 try:
                     subprocess.Popen(["python", "app/train_from_scratch.py"])
-                    last_trained[correction] = current_threshold
-                    with open(json_path, "w") as f:
-                        json.dump(last_trained, f, indent=2)
-                    flash(f"✔ Réentraînement lancé pour le plat corrigé : {correction}", "info")
+                    flash("✔ Réentraînement automatique lancé après 10 corrections !", "info")
                 except Exception as e:
                     flash("❌ Erreur lors du réentraînement automatique.", "danger")
                     print(f"[ERREUR] train_from_scratch : {e}")
-        else:
-            flash("Merci pour votre retour.", "success")
+
+            # Enregistrer les données mises à jour
+            with open(json_path, "w") as f:
+                json.dump(train_data, f, indent=2)
 
     # === CAS : Feedback positif
     elif rating == 1:
