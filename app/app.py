@@ -551,7 +551,7 @@ def feedback(upload_id):
             # On lance l'entraînement tous les 10 feedbacks négatifs
             if corrections % 10 == 0:
                 try:
-                    subprocess.Popen(["python", "app/train_from_scratch.py"])
+                    subprocess.Popen(["python", os.path.join(app.root_path, "train_from_scratch.py")])
                     flash("✔ Réentraînement automatique lancé après 10 corrections !", "info")
                 except Exception as e:
                     flash("❌ Erreur lors du réentraînement automatique.", "danger")
