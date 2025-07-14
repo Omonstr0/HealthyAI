@@ -31,7 +31,7 @@ if __name__ == "__main__":
     DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     print(f"[INFO] Entraînement sur : {DEVICE}")
 
-    DATASET_PATH = "dataset_small/images"
+    DATASET_PATH = "dataset/images"
 
     BASE_DIR = os.path.dirname(__file__)
     CLASS_FILE = os.path.join(BASE_DIR, "classes_food5.txt")
