@@ -10,8 +10,8 @@ dataset : https://www.kaggle.com/datasets/dansbecker/food-101?resource=download
 
 HealthyAI a pour but d'aider les utilisateurs à :
 - **Envoyer une photo de leur plat**
-- **Obtenir une analyse nutritionnelle instantanée via l'API Edamam**
-- **Corriger et noter les résultats** pour améliorer le modèle
+- **Obtenir une analyse nutritionnelle instantanée**
+- **Corriger et évaluer les résultats** pour améliorer le modèle
 - **Consulter un historique de leurs analyses**
 
 ---
@@ -33,13 +33,14 @@ HealthyAI a pour but d'aider les utilisateurs à :
 ### 2️⃣ **Upload et analyse d'image**
 - L'utilisateur téléverse une photo d'un plat.
 - Le modèle IA prédit le nom du plat.
-- Une requête est envoyée à **Edamam API** pour récupérer les valeurs nutritionnelles pour **1 portion par défaut**.
+- On récupére les valeurs nutritionnelles pour **1 portion par défaut** via le fichier "plats.csv".
 - Affichage des calories, protéines, glucides et lipides.
 
 > **Fichiers impliqués :**
 > - `app.py` (`/upload`)
 > - `predict.py` (modèle IA)
 > - `dashboard.html` (formulaire et affichage)
+> - `plat.csv` (fichier csv)
 
 ---
 
@@ -69,22 +70,17 @@ HealthyAI a pour but d'aider les utilisateurs à :
 
 ### 5️⃣ **Système de feedback utilisateur**
 - Pour chaque plat analysé, l'utilisateur peut :
-  - Donner une note (1 à 5 étoiles)
-  - Si la note est basse (≤ 3), proposer une correction manuelle du nom du plat.
+  - Evalutation de la prédiction
+  - Si l'évaluation est négative, proposer une correction manuelle du nom du plat.
 - Les feedbacks sont loggés dans :
   - `feedback_log.csv`
-  - Dossiers `feedback_data/<note>/` pour stocker les images par score.
-
-> **Fichiers impliqués :**
-> - `dashboard.html` (UI)
-> - `app.py` (`/feedback`, `/correct/<upload_id>`)
 
 ---
 
-### 6️⃣ **Réentraînement (prévu)**
-- Le prototype prévoit :
-  - La copie automatique des images corrigées dans `retraining_dataset/`
-  - Le déclenchement d'un script `retrain.py` dès qu'un seuil d'images corrigées est atteint.
+### 6️⃣ **Réentraînement**
+- Le prototype :
+  - La copie automatique des images corrigées.
+  - Le déclenchement d'un script `train_from_scratch.py` dès qu'un seuil d'images corrigées est atteint.
 - Objectif : améliorer le modèle au fil du temps.
 
 ---
@@ -94,10 +90,9 @@ HealthyAI a pour but d'aider les utilisateurs à :
 | Dossier / Fichier | Rôle |
 |-------------------|------|
 | `static/uploads/` | Images uploadées |
-| `feedback_data/` | Images classées par note |
-| `retraining_dataset/` | Images corrigées pour le réentraînement |
+| `feedback_data/` | Images classées |
 | `feedback_log.csv` | Log des feedbacks |
-| `database.db` | Base SQLite avec `User` et `Upload` |
+| `database.db` | Base PostgreSQL avec `User`, `Upload` et `UserProfile` |
 
 ---
 
@@ -105,28 +100,26 @@ HealthyAI a pour but d'aider les utilisateurs à :
 
 - **Python 3.10+**
 - **Flask** (framework backend)
-- **SQLAlchemy** (ORM + SQLite)
 - **PyTorch** (modèle IA)
-- **Edamam Food Database API**
 - **Bootstrap 5** (UI)
 
 ---
 
-## 🚀 Déploiement (prévu)
+## 🚀 Déploiement
 
-- Prévu pour un hébergement Cloud :
+- Hébergement Cloud :
   - Render.com / Railway.app pour déployer Flask facilement
-  - Images possibles en local ou via un stockage Cloud (ex: AWS S3)
-  - Base de données : SQLite pour prototype, Postgres conseillé pour la V2.
+  - Dataset déposé sur Hugging Face
+  - Base de données : PostgreSQL
 
 ---
 
 ## ✅ Prochaines améliorations
 
-- 📈 **Réentraînement automatique** en production.
-- ⚖️ **Système de grammage** pour ajuster l'analyse selon le poids réel du plat.
-- 🧩 **Détection multi-objets ** pour compter plusieurs items par plat.
-- ☁️ **Déploiement cloud** avec stockage persistant.
+- 📈 **Intégration API** nutritionnelle pour des données riches
+- ⚖️ Déploiement vers un modèle **multi items**.
+- 🧩 Développement d’une **application mobile**.
+- ☁️ Intégration d'une dimension **santé personnalisée**.
 
 
 **Auteur :** Équipe HealthyAI — Prototype V1 — 2025  
