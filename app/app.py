@@ -32,7 +32,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Détection de l’environnement (Render ou local)
 if os.environ.get("RENDER") == "true":
     UPLOAD_FOLDER = '/mnt/uploads'
-    FEEDBACK_CSV_PATH = "feedabck_csv/feedback_log.csv"
+    FEEDBACK_CSV_PATH = "feedback_cloud_csv/feedback_log.csv"
 else:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
     FEEDBACK_CSV_PATH = os.path.join(app.root_path, "feedback_csv", "feedback_log.csv")
