@@ -3,6 +3,7 @@ import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import time
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
@@ -79,6 +80,7 @@ if __name__ == "__main__":
 
     # ==== ENTRAINEMENT ====
     for epoch in range(EPOCHS):
+        start_time = time.time()
         model.train()
         running_loss = 0.0
 
@@ -109,6 +111,10 @@ if __name__ == "__main__":
 
     accuracy = correct / len(val_dataset) * 100
     print(f"[Validation] Accuracy: {accuracy:.2f}%")
+
+    # ==== VALIDATION TEMPS ====
+    elapsed_time = time.time() - start_time
+    print(f"[⏱️] Temps total d'entraînement : {elapsed_time:.2f} secondes")
 
     # ==== SAUVEGARDE ====
     torch.save(model.state_dict(), MODEL_PATH)
