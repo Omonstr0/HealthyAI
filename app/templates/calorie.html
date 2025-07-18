@@ -8,7 +8,7 @@
   {% endfor %}
 
 
-    <h2 class="text-center mb-4">👨‍⚕️ À propos de moi</h2>
+    <h2 class="text-center mb-4">À propos de moi</h2>
 
     <form method="POST">
         <div class="mb-3">
@@ -74,10 +74,10 @@
 
         <div class="d-flex gap-3">
             {% if edit_mode %}
-                <button type="submit" class="btn btn-success">💾 Enregistrer</button>
+                <button type="submit" class="btn btn-success">Enregistrer</button>
                 <a href="{{ url_for('calorie') }}" class="btn btn-secondary">Annuler</a>
             {% else %}
-                <a href="{{ url_for('calorie', edit=1) }}" class="btn btn-outline-primary">✏️ Modifier</a>
+                <a href="{{ url_for('calorie', edit=1) }}" class="btn btn-outline-primary">Modifier</a>
             {% endif %}
             <button type="submit" class="btn btn-success">Calculer</button>
         </div>
@@ -86,7 +86,7 @@
   {% if calories and protein_low and protein_high %}
     <div class="d-flex justify-content-center mt-5">
       <div class="card shadow-sm p-4" style="background-color: #f9f9f9; border-radius: 12px; max-width: 600px;">
-        <h4 class="mb-3 text-center">📊 Besoins journaliers estimés :</h4>
+        <h4 class="mb-3 text-center">Besoins journaliers estimés :</h4>
         <p class="mb-2 text-center"><strong>Calories :</strong> {{ calories }} kcal</p>
         <p class="mb-0 text-center"><strong>Protéines :</strong> entre {{ protein_low }} g et {{ protein_high }} g / jour</p>
       </div>

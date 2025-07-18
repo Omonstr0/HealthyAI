@@ -42,7 +42,7 @@ os.makedirs(os.path.dirname(FEEDBACK_CSV_PATH), exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# ========== 🧠 Auto-download du dataset si vide ==========
+# ==========  Auto-download du dataset si vide ==========
 DATASET_DIR = "dataset/images/"
 ZIP_URL = "https://huggingface.co/datasets/Omonstr0/dataset-healthyai/resolve/main/dataset.zip"
 ZIP_PATH = "dataset.zip"
@@ -109,7 +109,7 @@ def get_nutrition_from_food(dish_name):
             "name_fr": row["name_fr"].values[0]  # affichage propre
         }
     else:
-        # ❌ Aucune correspondance trouvée
+        # Aucune correspondance trouvée
         return {
             "kcal": 0,
             "protein_g": 0,
@@ -264,11 +264,11 @@ def upload():
         os.makedirs(static_upload_folder, exist_ok=True)
         dst_path = os.path.join(static_upload_folder, filename)
 
-        # ✅ Évite la SameFileError en local
+        # Évite la SameFileError en local
         if os.path.abspath(filepath) != os.path.abspath(dst_path):
             shutil.copy(filepath, dst_path)
 
-        # ✅ Vérification de compatibilité
+        # Vérification de compatibilité
         try:
             with Image.open(filepath) as img:
                 img.verify()
@@ -277,7 +277,7 @@ def upload():
             flash("Image non compatible. Veuillez choisir un fichier image valide (JPG, PNG).", "danger")
             return redirect(url_for('dashboard'))
 
-        # ✅ Prédiction + confiance
+        # Prédiction + confiance
         img = Image.open(filepath).convert("RGB")
         img_tensor = transform(img).unsqueeze(0)
         model.eval()
@@ -299,10 +299,10 @@ def upload():
 
         label_formatted = predicted_label.replace("_", " ").title()
 
-        # ✅ API nutrition
+        # nutrition
         nutrition = get_nutrition_from_food(label_formatted)
 
-        # ✅ Enregistrement DB
+        # Enregistrement DB
         new_upload = Upload(
             filename=filename,
             user_id=session['user_id'],
@@ -311,15 +311,15 @@ def upload():
         db.session.add(new_upload)
         db.session.commit()
 
-        # ✅ Session
+        # Session
         session['last_nutrition'] = nutrition
         session['last_dish'] = label_formatted
         session['last_confidence'] = round(confidence, 4)
 
-        # ✅ Historique
+        # Historique
         uploads = Upload.query.filter_by(user_id=session['user_id']).order_by(Upload.timestamp.desc()).all()
 
-        # ✅ Pré-écriture du log feedback (sans rating pour l’instant)
+        # Pré-écriture du log feedback (sans rating pour l’instant)
         log_path = FEEDBACK_CSV_PATH
         if not os.path.exists(log_path):
             with open(log_path, "w", newline="") as f:
@@ -360,7 +360,7 @@ def analyse(upload_id):
     session['last_image'] = url_for('static', filename=f'uploads/{upload.filename}')
     session['last_dish'] = label
 
-    # ✅ Réinitialise le rating à None après analyse (si correction déjà faite)
+    # Réinitialise le rating à None après analyse (si correction déjà faite)
     if upload.rating == 1:
         upload.rating = None
         db.session.commit()
@@ -410,7 +410,7 @@ def calorie():
                     db.session.add(profile)
 
                 db.session.commit()
-                flash("Informations enregistrées avec succès ✅", "success")
+                flash("Informations enregistrées avec succès", "success")
                 return redirect(url_for('calorie'))
 
             elif profile:
@@ -554,7 +554,7 @@ def feedback(upload_id):
                     subprocess.Popen(["python", os.path.join(app.root_path, "train_from_scratch.py")])
                     flash("✔ Réentraînement automatique lancé après 10 corrections !", "info")
                 except Exception as e:
-                    flash("❌ Erreur lors du réentraînement automatique.", "danger")
+                    flash("Erreur lors du réentraînement automatique.", "danger")
                     print(f"[ERREUR] train_from_scratch : {e}")
 
             # Enregistrer les données mises à jour
@@ -645,7 +645,7 @@ def analytics():
         if 'name' in df.columns:
             df['name_fr'] = df['name_fr'].str.lower().str.strip()
         else:
-            flash("⚠️ Le fichier plats.csv ne contient pas la colonne 'name'.", 'danger')
+            flash("Le fichier plats.csv ne contient pas la colonne 'name'.", 'danger')
             return redirect(url_for('dashboard'))
 
         uploads = Upload.query.filter_by(user_id=user_id).all()

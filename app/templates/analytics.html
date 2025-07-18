@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container my-4">
-  <h3 class="text-center mb-4">📊 Vos statistiques nutritionnelles</h3>
+  <h3 class="text-center mb-4">Vos statistiques nutritionnelles</h3>
 
   <div class="card-custom text-center">
     <h4>Calories consommées aujourd'hui</h4>
@@ -15,10 +15,10 @@
         {% elif calories_percentage < 70 %}alert-warning
         {% else %}alert-success{% endif %}">
       {% if calories_percentage >= 100 %}
-        ✅ Vous avez dépassé votre objectif calorique journalier :
+        Vous avez dépassé votre objectif calorique journalier :
         <strong>{{ calories_percentage }} %</strong> de {{ calories_needed }} kcal
       {% else %}
-        ℹ️ Vous avez consommé <strong>{{ calories_percentage }} %</strong> de votre objectif journalier ({{ calories_needed }} kcal)
+        Vous avez consommé <strong>{{ calories_percentage }} %</strong> de votre objectif journalier ({{ calories_needed }} kcal)
       {% endif %}
     </div>
 
